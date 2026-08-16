@@ -17,6 +17,8 @@ import {
   MapPin,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import OrganizationAccessPanel from '../components/OrganizationAccessPanel';
+import EmailNotificationPanel from '../components/EmailNotificationPanel';
 
 export default function SettingsPage() {
   const { user, logout } = useAuth();
@@ -90,7 +92,7 @@ export default function SettingsPage() {
               <div className="grid md:grid-cols-2 gap-4">
                 <div>
                   <p className="text-slate-500 text-xs uppercase mb-1">Company Name</p>
-                  <p className="text-white font-medium">Bookmyload</p>
+                  <p className="text-white font-medium">{user?.organization_name || 'Not set'}</p>
                 </div>
                 <div>
                   <p className="text-slate-500 text-xs uppercase mb-1">Industry</p>
@@ -220,6 +222,9 @@ export default function SettingsPage() {
           </Card>
         </div>
       </div>
+
+      <EmailNotificationPanel />
+      <OrganizationAccessPanel />
     </div>
   );
 }

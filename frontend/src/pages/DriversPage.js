@@ -39,6 +39,7 @@ import {
   CreditCard,
   Star,
   MapPin,
+  UserPlus,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -109,6 +110,17 @@ export default function DriversPage() {
     } catch (error) {
       console.error('Failed to delete driver:', error);
       toast.error('Failed to delete driver');
+    }
+  };
+
+  const handleInvite = async (driver) => {
+    const email = window.prompt(`Google email for ${driver.name}:`, driver.email || '');
+    if (!email) return;
+    try {
+      await driverAPI.invite(driver.driver_id, email);
+      toast.success('Driver invitation created. They can now sign in with that Google account.');
+    } catch (error) {
+      toast.error(error?.response?.data?.detail || 'Failed to invite driver');
     }
   };
 
@@ -342,6 +354,13 @@ export default function DriversPage() {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="bg-slate-900 border-slate-800">
+                    <DropdownMenuItem 
+                      className="text-orange-400 cursor-pointer"
+                      onClick={() => handleInvite(driver)}
+                    >
+                      <UserPlus className="w-4 h-4 mr-2" />
+                      Invite to driver app
+                    </DropdownMenuItem>
                     <DropdownMenuItem 
                       className="text-slate-300 hover:text-white cursor-pointer"
                       onClick={() => handleEdit(driver)}

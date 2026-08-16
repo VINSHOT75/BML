@@ -1,581 +1,68 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { useLanguage, languageNames } from '../context/LanguageContext';
+import { useLanguage } from '../context/LanguageContext';
+import { landingCopy, landingLanguageNames } from './landingTranslations';
 import { Button } from '../components/ui/button';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '../components/ui/dropdown-menu';
 import ChatBox from '../components/ChatBox';
-import { 
-  Truck, 
-  MapPin, 
-  Users, 
-  BarChart3, 
-  ArrowRight,
-  CheckCircle2,
-  Warehouse,
-  Package,
-  Handshake,
-  Phone,
-  Mail,
-  MapPinned,
-  Globe,
-  CreditCard,
-  Headphones,
-  Shield,
-  Clock,
-  ChevronDown,
-} from 'lucide-react';
+import { ArrowRight, BarChart3, BellRing, Check, ChevronRight, CircleDollarSign, Clock3, FileCheck2, Globe2, Mail, MapPin, Menu, Navigation, Phone, Route, ShieldCheck, Sparkles, Truck, Users, WalletCards, X, Zap } from 'lucide-react';
 
-// Company Contact Info
-const CONTACT = {
-  indiaPhone: '+91 91111-11185',
-  australiaPhone: '+61 4111-85967',
-  email: 'help.bookmyload@gmail.com',
-  address: '211-214 Mechanic Nagar, Transport Nagar Indore, Madhya Pradesh 452001',
-};
+const CONTACT = { indiaPhone: '+91 91111-11185', australiaPhone: '+61 4111-85967', email: 'help.bookmyload@gmail.com', address: '211–214 Mechanic Nagar, Transport Nagar, Indore, Madhya Pradesh 452001' };
+
+const featureIcons = [Route, Navigation, ShieldCheck, CircleDollarSign];
+const reasonIcons = [Users, Clock3, WalletCards, BellRing];
 
 export default function LandingPage() {
-  const { login, user } = useAuth();
-  const { t, language, setLanguage } = useLanguage();
+  const { login, user } = useAuth(); const { language, setLanguage } = useLanguage(); const navigate = useNavigate(); const [menuOpen, setMenuOpen] = useState(false); const pageLanguage = landingCopy[language] ? language : 'en'; const c = landingCopy[pageLanguage];
+  const enter = () => user ? navigate(user.role === 'driver' ? '/driver' : '/dashboard') : login();
+  return <div className="landing-page min-h-screen overflow-hidden bg-[#f5f4ed] text-[#12221e] selection:bg-[#d8ff61] selection:text-[#12221e]">
+    <header className="fixed inset-x-0 top-0 z-50 border-b border-white/10 bg-[#071512]/80 backdrop-blur-xl">
+      <div className="mx-auto flex h-20 max-w-[1440px] items-center justify-between px-5 sm:px-8 lg:px-12">
+        <a href="#top" className="flex items-center gap-3 text-white"><span className="grid h-10 w-10 place-items-center rounded-xl bg-[#d8ff61]"><Truck className="h-5 w-5 text-[#071512]" /></span><span><span className="block text-lg font-extrabold leading-none tracking-[-.04em]">BookMyLoad</span><span className="mt-1 block text-[9px] font-bold uppercase tracking-[.18em] text-white/45">{c.brandSub}</span></span></a>
+        <nav className="hidden items-center gap-8 lg:flex">{c.nav.map((label,index) => <a key={label} href={['#product','#workflow','#why-us','#contact'][index]} className="text-sm font-medium text-white/65 transition hover:text-[#d8ff61]">{label}</a>)}</nav>
+        <div className="hidden items-center gap-3 lg:flex"><LanguageSelect language={language} setLanguage={setLanguage} />{user ? <Link to={user.role === 'driver' ? '/driver' : '/dashboard'}><Button className="h-11 rounded-full bg-[#d8ff61] px-6 font-bold text-[#071512] hover:bg-white">{c.open}<ArrowRight className="ml-2 h-4 w-4" /></Button></Link> : <><button onClick={login} className="px-3 text-sm font-semibold text-white/75 hover:text-white">{c.signIn}</button><Button onClick={login} data-testid="login-btn" className="h-11 rounded-full bg-[#d8ff61] px-6 font-bold text-[#071512] hover:bg-white">{c.start}<ArrowRight className="ml-2 h-4 w-4" /></Button></> }</div>
+        <button onClick={() => setMenuOpen(!menuOpen)} className="grid h-10 w-10 place-items-center rounded-full border border-white/15 text-white lg:hidden" aria-label="Toggle navigation">{menuOpen ? <X /> : <Menu />}</button>
+      </div>
+      {menuOpen && <div className="border-t border-white/10 bg-[#071512] px-5 py-5 lg:hidden"><div className="mb-3"><LanguageSelect language={language} setLanguage={setLanguage} mobile /></div><nav className="flex flex-col gap-1">{c.nav.map((label,index) => <a key={label} href={['#product','#workflow','#why-us','#contact'][index]} onClick={() => setMenuOpen(false)} className="rounded-xl px-4 py-3 font-semibold text-white/75 hover:bg-white/5 hover:text-white">{label}</a>)}</nav><Button onClick={enter} className="mt-4 w-full rounded-full bg-[#d8ff61] text-[#071512]">{user ? c.open : c.google}</Button></div>}
+    </header>
 
-  const stats = [
-    { value: '500+', label: t('warehouses') },
-    { value: '2000+', label: t('transporters') },
-    { value: '10K+', label: t('loadsDelivered') },
-    { value: '24/7', label: t('support') }
-  ];
-
-  const warehouseFeatures = [
-    t('warehouseFeature1') || 'No driver management headaches',
-    t('warehouseFeature2') || 'Transparent pricing & billing',
-    t('warehouseFeature3') || 'Real-time shipment tracking',
-    t('warehouseFeature4') || 'Dedicated logistics support',
-  ];
-
-  const transporterFeatures = [
-    t('transporterFeature1') || 'Consistent load availability',
-    t('transporterFeature2') || 'Clear rates upfront',
-    t('transporterFeature3') || 'Faster payments guaranteed',
-    t('transporterFeature4') || 'No payment chasing',
-  ];
-
-  const features = [
-    {
-      icon: Warehouse,
-      title: t('featureWarehouse') || 'Warehouse Connect',
-      description: t('featureWarehouseDesc') || 'Connect with our managed transporter network. No marketplace chaos - just reliable service.'
-    },
-    {
-      icon: Truck,
-      title: t('featureTransporter') || 'Transporter Network',
-      description: t('featureTransporterDesc') || 'Join our verified network. Get regular loads, clear rates, and timely payments.'
-    },
-    {
-      icon: MapPin,
-      title: t('featureTracking') || 'Live Tracking',
-      description: t('featureTrackingDesc') || 'Real-time GPS tracking of all shipments from pickup to delivery.'
-    },
-    {
-      icon: CreditCard,
-      title: t('featurePayments') || 'Fast Payments',
-      description: t('featurePaymentsDesc') || 'Transparent billing for warehouses. Quick payments for transporters.'
-    },
-    {
-      icon: Headphones,
-      title: t('featureSupport') || '24/7 Support',
-      description: t('featureSupportDesc') || 'Dedicated support team in India and Australia to help you anytime.'
-    },
-    {
-      icon: BarChart3,
-      title: t('featureAnalytics') || 'Smart Analytics',
-      description: t('featureAnalyticsDesc') || 'AI-powered insights for route optimization and cost efficiency.'
-    }
-  ];
-
-  return (
-    <div className="min-h-screen bg-slate-50">
-      {/* Header */}
-      <header className="fixed top-0 left-0 right-0 z-50 bg-white border-b border-slate-200">
-        <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8">
-          <div className="flex items-center justify-between">
-            <img 
-              src="/logo.svg"
-              alt="BookMyLoad - Connecting Loads, Delivering Solutions"
-              className="w-56 sm:w-72 md:w-80 lg:w-96 object-contain"
-            />
-            <nav className="hidden lg:flex items-center gap-8">
-              <a href="#features" className="text-slate-600 hover:text-slate-900 text-sm font-medium">
-                {t('features')}
-              </a>
-              <a href="#about" className="text-slate-600 hover:text-slate-900 text-sm font-medium">
-                {t('aboutUs')}
-              </a>
-              <a href="#contact" className="text-slate-600 hover:text-slate-900 text-sm font-medium">
-                {t('contact')}
-              </a>
-            </nav>
-            <div className="flex items-center gap-2 sm:gap-4">
-              {/* Language Selector */}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm" className="flex items-center gap-1 sm:gap-2 border-slate-300 px-2 sm:px-3">
-                    <Globe className="w-4 h-4" />
-                    <span className="hidden sm:inline">{languageNames[language]}</span>
-                    <ChevronDown className="w-3 h-3" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="bg-white border-slate-200">
-                  {Object.entries(languageNames).map(([code, name]) => (
-                    <DropdownMenuItem
-                      key={code}
-                      onClick={() => setLanguage(code)}
-                      className={`cursor-pointer ${language === code ? 'bg-orange-50 text-[#E86F2A]' : ''}`}
-                    >
-                      {name}
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
-
-              {user ? (
-                <Link to="/dashboard">
-                  <Button size="sm" className="bg-[#E86F2A] hover:bg-[#d65f1a] text-white font-heading font-bold uppercase tracking-wide text-xs sm:text-sm px-2 sm:px-4">
-                    <span className="hidden sm:inline">{t('dashboard')}</span>
-                    <span className="sm:hidden">Dashboard</span>
-                    <ArrowRight className="ml-1 sm:ml-2 w-3 h-3 sm:w-4 sm:h-4" />
-                  </Button>
-                </Link>
-              ) : (
-                <Button 
-                  onClick={login}
-                  size="sm"
-                  data-testid="login-btn"
-                  className="bg-[#E86F2A] hover:bg-[#d65f1a] text-white font-heading font-bold uppercase tracking-wide shadow-lg shadow-orange-500/20 text-xs sm:text-sm px-2 sm:px-4"
-                >
-                  <span className="hidden sm:inline">{t('getStarted')}</span>
-                  <span className="sm:hidden">Start</span>
-                  <ArrowRight className="ml-1 sm:ml-2 w-3 h-3 sm:w-4 sm:h-4" />
-                </Button>
-              )}
-            </div>
+    <main id="top">
+      <section className="relative min-h-[790px] bg-[#071512] pt-20 text-white lg:min-h-[860px]">
+        <img src="/logistics-hero.png" alt="Freight truck travelling on a modern logistics corridor at dawn" className="absolute inset-0 h-full w-full object-cover object-[66%_center]" />
+        <div className="absolute inset-0 bg-[linear-gradient(90deg,#071512_0%,rgba(7,21,18,.96)_33%,rgba(7,21,18,.56)_60%,rgba(7,21,18,.2)_100%)]" />
+        <div className="absolute inset-0 bg-[linear-gradient(0deg,#071512_0%,transparent_30%)]" />
+        <div className="relative mx-auto flex min-h-[710px] max-w-[1440px] items-center px-5 py-20 sm:px-8 lg:min-h-[780px] lg:px-12">
+          <div className="max-w-3xl pt-10">
+            <div className="mb-7 inline-flex items-center gap-2 rounded-full border border-[#d8ff61]/25 bg-[#d8ff61]/10 px-4 py-2 text-xs font-bold uppercase tracking-[.14em] text-[#d8ff61]"><Sparkles className="h-3.5 w-3.5" />{c.badge}</div>
+            <h1 className="max-w-3xl text-[3.25rem] font-black leading-[.94] tracking-[-.055em] sm:text-7xl lg:text-[6.4rem]">{c.hero1}<br /><span className="text-[#d8ff61]">{c.hero2}</span></h1>
+            <p className="mt-7 max-w-xl text-base leading-7 text-white/66 sm:text-lg">{c.heroText}</p>
+            <div className="mt-9 flex flex-col gap-3 sm:flex-row">{user ? <Link to={user.role === 'driver' ? '/driver' : '/dashboard'}><Button size="lg" className="h-14 w-full rounded-full bg-[#d8ff61] px-8 text-base font-extrabold text-[#071512] hover:bg-white sm:w-auto">{c.open}<ArrowRight className="ml-2 h-5 w-5" /></Button></Link> : <Button onClick={login} size="lg" className="h-14 rounded-full bg-[#d8ff61] px-8 text-base font-extrabold text-[#071512] hover:bg-white">{c.google}<ArrowRight className="ml-2 h-5 w-5" /></Button>}<a href="#product" className="flex h-14 items-center justify-center rounded-full border border-white/20 px-7 font-bold text-white transition hover:border-white/50 hover:bg-white/5">{c.explore}</a></div>
+            <div className="mt-8 flex flex-wrap gap-x-6 gap-y-3 text-xs font-semibold text-white/50">{c.assurances.map(item => <span key={item} className="flex items-center gap-2"><Check className="h-4 w-4 text-[#d8ff61]" />{item}</span>)}</div>
           </div>
         </div>
-      </header>
-
-      {/* Hero Section */}
-      <section className="relative pt-32 sm:pt-36 pb-20 overflow-hidden">
-        <div 
-          className="absolute inset-0 z-0"
-          style={{
-            backgroundImage: `url('https://images.unsplash.com/photo-1709735133497-bbead76953a9?crop=entropy&cs=srgb&fm=jpg&q=85')`,
-            backgroundSize: 'cover',
-            backgroundPosition: 'center',
-          }}
-        >
-          <div className="absolute inset-0 bg-gradient-to-r from-[#1B4B7A]/95 via-[#1B4B7A]/80 to-[#1B4B7A]/60" />
-        </div>
-        
-        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
-          <div className="max-w-3xl">
-            <div className="inline-flex items-center gap-2 bg-[#E86F2A]/10 border border-[#E86F2A]/20 rounded-full px-4 py-1.5 mb-6">
-              <span className="w-2 h-2 bg-[#E86F2A] rounded-full animate-pulse" />
-              <span className="text-[#E86F2A] text-sm font-medium">India's #1 Load Management Platform</span>
-            </div>
-            
-            <h1 className="font-heading font-bold text-4xl sm:text-5xl lg:text-6xl text-white leading-tight mb-6">
-              Connecting Loads, Delivering Solutions
-            </h1>
-            
-            {/* Key Message Banner */}
-            <div className="bg-[#E86F2A] text-white px-6 py-3 rounded-lg mb-6 inline-block">
-              <p className="font-heading font-bold text-lg">
-                BookMyLoad is not a marketplace. We MANAGE your transport.
-              </p>
-            </div>
-            
-            <p className="text-lg text-slate-300 mb-8 leading-relaxed">
-              BookMyLoad bridges warehouses and transporters across India. We MANAGE your transport - not just match loads. Get reliable logistics without the hassle.
-            </p>
-            
-            <div className="flex flex-col sm:flex-row gap-4">
-              <Button 
-                onClick={login}
-                data-testid="hero-cta-btn"
-                size="lg"
-                className="bg-[#E86F2A] hover:bg-[#d65f1a] text-white font-heading font-bold uppercase tracking-wide shadow-lg shadow-orange-500/30 px-8"
-              >
-                Post Your Load
-                <ArrowRight className="ml-2 w-5 h-5" />
-              </Button>
-              <Button 
-                onClick={login}
-                variant="outline"
-                size="lg"
-                className="border-white/30 text-white hover:bg-white/10 font-heading font-semibold"
-              >
-                Find Loads
-              </Button>
-            </div>
-          </div>
-        </div>
+        <div className="relative mx-auto -mt-24 max-w-[1440px] px-5 sm:px-8 lg:px-12"><div className="grid overflow-hidden rounded-[1.75rem] border border-white/10 bg-[#10241f]/90 shadow-2xl backdrop-blur-xl sm:grid-cols-3">{c.metrics.map(([value,label],index) => <HeroMetric key={label} icon={[Zap,FileCheck2,TrendingIcon][index]} value={value} label={label} />)}</div></div>
       </section>
 
-      {/* Stats Section */}
-      <section className="py-12 bg-[#1B4B7A]">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
-            {stats.map((stat, index) => (
-              <div key={index} className="text-center">
-                <div className="font-heading font-bold text-3xl sm:text-4xl text-[#E86F2A] mb-1">
-                  {stat.value}
-                </div>
-                <div className="text-slate-300 text-sm font-medium">
-                  {stat.label}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
+      <section id="product" className="px-5 py-28 sm:px-8 lg:px-12 lg:py-36"><div className="mx-auto max-w-[1344px]"><SectionIntro eyebrow={c.productEyebrow} title={c.productTitle} text={c.productText} /><div className="mt-14 grid gap-4 md:grid-cols-2">{c.features.map((item,index) => { const Icon = featureIcons[index]; return <article key={item[1]} className={`group relative overflow-hidden rounded-[2rem] border border-[#12221e]/10 p-7 transition duration-500 hover:-translate-y-1 hover:shadow-[0_25px_70px_rgba(18,34,30,.12)] sm:p-10 ${index === 0 ? 'bg-[#12221e] text-white' : index === 3 ? 'bg-[#d8ff61]' : 'bg-white'}`}><div className={`mb-16 flex h-12 w-12 items-center justify-center rounded-2xl ${index === 0 ? 'bg-[#d8ff61] text-[#12221e]' : 'bg-[#12221e] text-white'}`}><Icon className="h-5 w-5" /></div><p className={`text-xs font-extrabold uppercase tracking-[.16em] ${index === 0 ? 'text-[#d8ff61]' : 'text-[#497066]'}`}>{item[0]}</p><h3 className="mt-3 max-w-md text-3xl font-black tracking-[-.04em] sm:text-4xl">{item[1]}</h3><p className={`mt-4 max-w-lg leading-7 ${index === 0 ? 'text-white/55' : 'text-[#4f625d]'}`}>{item[2]}</p><ChevronRight className="absolute right-8 top-8 h-5 w-5 opacity-30 transition group-hover:translate-x-1 group-hover:opacity-100" /></article>})}</div></div></section>
 
-      {/* For Warehouses & Transporters Section */}
-      <section className="py-20 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid lg:grid-cols-2 gap-8">
-            {/* For Warehouses */}
-            <div className="bg-gradient-to-br from-[#1B4B7A] to-[#0f2d4a] rounded-2xl p-8 text-white">
-              <div className="w-14 h-14 bg-white/10 rounded-xl flex items-center justify-center mb-6">
-                <Warehouse className="w-7 h-7 text-[#E86F2A]" />
-              </div>
-              <h3 className="font-heading font-bold text-2xl mb-4">{t('forWarehouses')}</h3>
-              <p className="text-xl text-white/90 mb-6 leading-relaxed">
-                "{t('warehousePitch')}"
-              </p>
-              <ul className="space-y-3">
-                {warehouseFeatures.map((feature, index) => (
-                  <li key={index} className="flex items-center gap-3">
-                    <CheckCircle2 className="w-5 h-5 text-[#E86F2A] flex-shrink-0" />
-                    <span className="text-white/80">{feature}</span>
-                  </li>
-                ))}
-              </ul>
-              <Button 
-                onClick={login}
-                className="mt-8 bg-[#E86F2A] hover:bg-[#d65f1a] text-white font-heading font-semibold"
-              >
-                {t('postYourLoad')}
-                <ArrowRight className="ml-2 w-4 h-4" />
-              </Button>
-            </div>
+      <section className="bg-[#dce6df] px-5 py-24 sm:px-8 lg:px-12 lg:py-32"><div className="mx-auto grid max-w-[1344px] items-center gap-14 lg:grid-cols-[.9fr_1.1fr]"><div><span className="text-xs font-extrabold uppercase tracking-[.16em] text-[#497066]">{c.controlEyebrow}</span><h2 className="mt-5 text-4xl font-black leading-[1.02] tracking-[-.05em] sm:text-6xl">{c.controlTitle}</h2><p className="mt-6 max-w-lg leading-7 text-[#4f625d]">{c.controlText}</p><ul className="mt-8 space-y-4">{c.controlPoints.map(item => <li key={item} className="flex gap-3 font-semibold"><span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-[#12221e] text-[#d8ff61]"><Check className="h-3.5 w-3.5" /></span>{item}</li>)}</ul></div><ProductMockup copy={c.mock} /></div></section>
 
-            {/* For Transporters */}
-            <div className="bg-gradient-to-br from-[#E86F2A] to-[#c55a1a] rounded-2xl p-8 text-white">
-              <div className="w-14 h-14 bg-white/10 rounded-xl flex items-center justify-center mb-6">
-                <Truck className="w-7 h-7 text-white" />
-              </div>
-              <h3 className="font-heading font-bold text-2xl mb-4">{t('forTransporters')}</h3>
-              <p className="text-xl text-white/90 mb-6 leading-relaxed">
-                "{t('transporterPitch')}"
-              </p>
-              <ul className="space-y-3">
-                {transporterFeatures.map((feature, index) => (
-                  <li key={index} className="flex items-center gap-3">
-                    <CheckCircle2 className="w-5 h-5 text-white flex-shrink-0" />
-                    <span className="text-white/80">{feature}</span>
-                  </li>
-                ))}
-              </ul>
-              <Button 
-                onClick={login}
-                className="mt-8 bg-[#1B4B7A] hover:bg-[#0f2d4a] text-white font-heading font-semibold"
-              >
-                {t('findLoads')}
-                <ArrowRight className="ml-2 w-4 h-4" />
-              </Button>
-            </div>
-          </div>
-        </div>
-      </section>
+      <section id="workflow" className="bg-[#071512] px-5 py-28 text-white sm:px-8 lg:px-12 lg:py-36"><div className="mx-auto max-w-[1344px]"><SectionIntro dark eyebrow={c.workflowEyebrow} title={c.workflowTitle} text={c.workflowText} /><div className="mt-16 grid gap-px overflow-hidden rounded-[2rem] border border-white/10 bg-white/10 md:grid-cols-2 lg:grid-cols-4">{c.workflow.map(([title,text],index) => <article key={title} className="bg-[#0b1b17] p-7 sm:p-9"><span className="font-mono text-xs text-[#d8ff61]">{String(index + 1).padStart(2,'0')}</span><h3 className="mt-14 text-2xl font-bold tracking-[-.03em]">{title}</h3><p className="mt-4 text-sm leading-6 text-white/50">{text}</p></article>)}</div></div></section>
 
-      {/* How It Works Section */}
-      <section id="how-it-works" className="py-20 bg-slate-100">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="font-heading font-bold text-3xl sm:text-4xl text-slate-900 mb-4">
-              {t('howItWorks')}
-            </h2>
-            <p className="text-slate-600 max-w-2xl mx-auto">
-              {t('howItWorksSubtitle') || 'We manage the entire process - from pickup to delivery'}
-            </p>
-          </div>
-          
-          <div className="grid md:grid-cols-3 gap-8">
-            {[
-              { 
-                step: '01', 
-                title: t('step1Title') || 'Post Your Requirement', 
-                desc: t('step1Desc') || 'Warehouses share load details. Transporters register their fleet. We take it from there.', 
-                icon: Package 
-              },
-              { 
-                step: '02', 
-                title: t('step2Title') || 'We Match & Manage', 
-                desc: t('step2Desc') || 'Our team assigns the right transporter, handles documentation, and coordinates pickup.', 
-                icon: Handshake 
-              },
-              { 
-                step: '03', 
-                title: t('step3Title') || 'Track & Deliver', 
-                desc: t('step3Desc') || 'Real-time GPS tracking, proof of delivery, and complete transparency until delivery.', 
-                icon: MapPin 
-              },
-            ].map((item, index) => (
-              <div key={index} className="relative p-6 bg-white rounded-lg shadow-sm border border-slate-200">
-                <div className="text-6xl font-heading font-bold text-[#1B4B7A]/10 absolute top-4 right-4">
-                  {item.step}
-                </div>
-                <div className="w-12 h-12 bg-[#E86F2A]/10 rounded-lg flex items-center justify-center mb-4">
-                  <item.icon className="w-6 h-6 text-[#E86F2A]" />
-                </div>
-                <h3 className="font-heading font-semibold text-lg text-slate-900 mb-2">
-                  {item.title}
-                </h3>
-                <p className="text-slate-600 text-sm">
-                  {item.desc}
-                </p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
+      <section id="why-us" className="px-5 py-28 sm:px-8 lg:px-12 lg:py-36"><div className="mx-auto max-w-[1344px]"><div className="grid gap-12 lg:grid-cols-2"><div><SectionIntro eyebrow={c.whyEyebrow} title={c.whyTitle} text={c.whyText} /></div><div className="grid gap-4 sm:grid-cols-2">{c.reasons.map(([title,text],index) => <Reason key={title} icon={reasonIcons[index]} title={title} text={text} />)}</div></div></div></section>
 
-      {/* Features Section */}
-      <section id="features" className="py-20 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="font-heading font-bold text-3xl sm:text-4xl text-slate-900 mb-4">
-              {t('featuresTitle') || 'Everything You Need for Seamless Logistics'}
-            </h2>
-            <p className="text-slate-600 max-w-2xl mx-auto">
-              {t('featuresSubtitle') || 'Powerful features for warehouses and transporters across India'}
-            </p>
-          </div>
-          
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {features.map((feature, index) => (
-              <div 
-                key={index}
-                className="group p-6 bg-slate-50 border border-slate-200 rounded-lg hover:border-[#E86F2A]/50 hover:shadow-lg transition-all duration-300"
-              >
-                <div className="w-12 h-12 bg-[#1B4B7A]/10 rounded-lg flex items-center justify-center mb-4 group-hover:bg-[#E86F2A] transition-colors duration-300">
-                  <feature.icon className="w-6 h-6 text-[#1B4B7A] group-hover:text-white transition-colors duration-300" />
-                </div>
-                <h3 className="font-heading font-semibold text-lg text-slate-900 mb-2">
-                  {feature.title}
-                </h3>
-                <p className="text-slate-600 text-sm leading-relaxed">
-                  {feature.description}
-                </p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
+      <section className="px-5 pb-28 sm:px-8 lg:px-12 lg:pb-36"><div className="relative mx-auto max-w-[1344px] overflow-hidden rounded-[2.5rem] bg-[#d8ff61] px-6 py-16 sm:px-12 lg:px-20 lg:py-20"><div className="absolute -right-24 -top-24 h-72 w-72 rounded-full border-[55px] border-[#12221e]/5" /><div className="relative max-w-3xl"><p className="text-xs font-extrabold uppercase tracking-[.16em] text-[#497066]">{c.ctaEyebrow}</p><h2 className="mt-5 text-4xl font-black leading-[.98] tracking-[-.05em] sm:text-6xl">{c.ctaTitle}</h2><p className="mt-5 max-w-xl text-[#3f554f]">{c.ctaText}</p><Button onClick={enter} className="mt-8 h-14 rounded-full bg-[#12221e] px-8 font-extrabold text-white hover:bg-[#24433b]">{user ? c.open : c.google}<ArrowRight className="ml-2 h-5 w-5" /></Button></div></div></section>
+    </main>
 
-      {/* About Us Section */}
-      <section id="about" className="py-20 bg-slate-900">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid lg:grid-cols-2 gap-12 items-center">
-            <div>
-              <h2 className="font-heading font-bold text-3xl sm:text-4xl text-white mb-2">
-                {t('aboutUsTitle') || 'About BookMyLoad'}
-              </h2>
-              <p className="text-[#E86F2A] font-medium mb-6">{t('aboutUsSubtitle') || 'Know About Us'}</p>
-              
-              <div className="space-y-4 text-slate-300">
-                <p>
-                  {t('aboutUsDesc1') || 'BookMyLoad is a full-service logistics management company that bridges the gap between warehouses and transporters. Unlike marketplaces that just connect and leave, we MANAGE your entire transport operation.'}
-                </p>
-                <p>
-                  {t('aboutUsDesc2') || 'Founded with a mission to simplify logistics in India, we understand the pain points of both warehouses struggling with unreliable transport and transporters chasing payments and loads. We solve both.'}
-                </p>
-                <p>
-                  {t('aboutUsDesc3') || 'With operations in India and Australia, we bring global standards to local logistics. Our technology-driven approach combined with hands-on management ensures your goods reach safely and on time.'}
-                </p>
-              </div>
-
-              {/* Key Message */}
-              <div className="mt-8 p-4 bg-[#E86F2A]/10 border border-[#E86F2A]/30 rounded-lg">
-                <p className="text-[#E86F2A] font-heading font-bold text-lg">
-                  {t('notMarketplace')}
-                </p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="bg-slate-800 rounded-lg p-6 text-center">
-                <Warehouse className="w-10 h-10 text-[#E86F2A] mx-auto mb-3" />
-                <div className="font-heading font-bold text-2xl text-white">500+</div>
-                <div className="text-slate-400 text-sm">{t('warehouses')}</div>
-              </div>
-              <div className="bg-slate-800 rounded-lg p-6 text-center">
-                <Truck className="w-10 h-10 text-[#E86F2A] mx-auto mb-3" />
-                <div className="font-heading font-bold text-2xl text-white">2000+</div>
-                <div className="text-slate-400 text-sm">{t('transporters')}</div>
-              </div>
-              <div className="bg-slate-800 rounded-lg p-6 text-center">
-                <Package className="w-10 h-10 text-[#E86F2A] mx-auto mb-3" />
-                <div className="font-heading font-bold text-2xl text-white">10K+</div>
-                <div className="text-slate-400 text-sm">{t('loadsDelivered')}</div>
-              </div>
-              <div className="bg-slate-800 rounded-lg p-6 text-center">
-                <Globe className="w-10 h-10 text-[#E86F2A] mx-auto mb-3" />
-                <div className="font-heading font-bold text-2xl text-white">2</div>
-                <div className="text-slate-400 text-sm">Countries</div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Contact Section */}
-      <section id="contact" className="py-20 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12">
-            <h2 className="font-heading font-bold text-3xl sm:text-4xl text-slate-900 mb-4">
-              {t('contactUs')}
-            </h2>
-          </div>
-
-          <div className="grid md:grid-cols-3 gap-8">
-            {/* India Office */}
-            <div className="bg-slate-50 rounded-lg p-6 text-center">
-              <div className="w-12 h-12 bg-[#E86F2A]/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Phone className="w-6 h-6 text-[#E86F2A]" />
-              </div>
-              <h3 className="font-heading font-semibold text-lg text-slate-900 mb-2">
-                {t('indiaOffice')}
-              </h3>
-              <p className="text-[#1B4B7A] font-bold text-xl">{CONTACT.indiaPhone}</p>
-            </div>
-
-            {/* Australia Office */}
-            <div className="bg-slate-50 rounded-lg p-6 text-center">
-              <div className="w-12 h-12 bg-[#E86F2A]/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Phone className="w-6 h-6 text-[#E86F2A]" />
-              </div>
-              <h3 className="font-heading font-semibold text-lg text-slate-900 mb-2">
-                {t('australiaOffice')}
-              </h3>
-              <p className="text-[#1B4B7A] font-bold text-xl">{CONTACT.australiaPhone}</p>
-            </div>
-
-            {/* Email */}
-            <div className="bg-slate-50 rounded-lg p-6 text-center">
-              <div className="w-12 h-12 bg-[#E86F2A]/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Mail className="w-6 h-6 text-[#E86F2A]" />
-              </div>
-              <h3 className="font-heading font-semibold text-lg text-slate-900 mb-2">
-                {t('emailUs')}
-              </h3>
-              <p className="text-[#1B4B7A] font-bold">{CONTACT.email}</p>
-            </div>
-          </div>
-
-          {/* Address */}
-          <div className="mt-8 bg-[#1B4B7A] rounded-lg p-6 text-center">
-            <div className="flex items-center justify-center gap-3 mb-2">
-              <MapPinned className="w-6 h-6 text-[#E86F2A]" />
-              <h3 className="font-heading font-semibold text-lg text-white">{t('address')}</h3>
-            </div>
-            <p className="text-slate-300">{CONTACT.address}</p>
-          </div>
-        </div>
-      </section>
-
-      {/* CTA Section */}
-      <section className="py-20 bg-[#E86F2A] relative overflow-hidden">
-        <div className="absolute inset-0 opacity-10">
-          <div className="absolute inset-0" style={{
-            backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
-          }} />
-        </div>
-        <div className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h2 className="font-heading font-bold text-3xl sm:text-4xl text-white mb-4">
-            {t('ctaTitle')}
-          </h2>
-          <p className="text-white/80 mb-8 text-lg">
-            {t('ctaSubtitle')}
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-            <Button 
-              onClick={login}
-              size="lg"
-              className="bg-[#1B4B7A] hover:bg-[#0f2d4a] text-white font-heading font-bold uppercase tracking-wide shadow-lg px-8"
-            >
-              {t('ctaButton') || 'Get Started Free'}
-              <ArrowRight className="ml-2 w-5 h-5" />
-            </Button>
-          </div>
-          <div className="mt-8 flex items-center justify-center gap-6 text-sm text-white/80">
-            <div className="flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 text-white" />
-              <span>{t('noCreditCard')}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 text-white" />
-              <span>{t('freeToStart')}</span>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Footer */}
-      <footer className="py-12 bg-slate-950 border-t border-slate-800">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid md:grid-cols-4 gap-8 mb-8">
-            <div className="md:col-span-2">
-              <img 
-                src="/logo.svg"
-                alt="BookMyLoad"
-                className="h-16 object-contain mb-4"
-              />
-              <p className="text-slate-400 text-sm mb-4">
-                {t('notMarketplace')}
-              </p>
-            </div>
-            <div>
-              <h4 className="font-heading font-semibold text-white mb-4">{t('contact')}</h4>
-              <div className="space-y-2 text-sm text-slate-400">
-                <p>🇮🇳 {CONTACT.indiaPhone}</p>
-                <p>🇦🇺 {CONTACT.australiaPhone}</p>
-                <p>✉️ {CONTACT.email}</p>
-              </div>
-            </div>
-            <div>
-              <h4 className="font-heading font-semibold text-white mb-4">{t('address')}</h4>
-              <p className="text-sm text-slate-400">{CONTACT.address}</p>
-            </div>
-          </div>
-          <div className="flex flex-col md:flex-row items-center justify-between gap-4 pt-8 border-t border-slate-800">
-            <div className="flex items-center gap-6 text-sm text-slate-400">
-              <a href="#" className="hover:text-white">{t('privacyPolicy')}</a>
-              <a href="#" className="hover:text-white">{t('termsOfService')}</a>
-            </div>
-            <p className="text-slate-500 text-sm">
-              © 2024 BookMyLoad. {t('allRightsReserved')}
-            </p>
-          </div>
-        </div>
-      </footer>
-
-      {/* Chat Box */}
-      <ChatBox />
-    </div>
-  );
+    <footer id="contact" className="bg-[#071512] px-5 pb-8 pt-20 text-white sm:px-8 lg:px-12"><div className="mx-auto max-w-[1344px]"><div className="grid gap-12 border-b border-white/10 pb-16 md:grid-cols-2 lg:grid-cols-4"><div className="lg:col-span-2"><div className="flex items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-xl bg-[#d8ff61]"><Truck className="h-5 w-5 text-[#071512]" /></span><span className="text-xl font-extrabold tracking-[-.04em]">BookMyLoad</span></div><p className="mt-5 max-w-sm leading-7 text-white/45">{c.footerText}</p></div><div><p className="text-xs font-bold uppercase tracking-[.18em] text-[#d8ff61]">{c.contact}</p><div className="mt-5 space-y-3 text-sm text-white/60"><a className="flex items-center gap-2 hover:text-white" href={`tel:${CONTACT.indiaPhone}`}><Phone className="h-4 w-4" />India · {CONTACT.indiaPhone}</a><a className="flex items-center gap-2 hover:text-white" href={`tel:${CONTACT.australiaPhone}`}><Globe2 className="h-4 w-4" />Australia · {CONTACT.australiaPhone}</a><a className="flex items-center gap-2 hover:text-white" href={`mailto:${CONTACT.email}`}><Mail className="h-4 w-4" />{CONTACT.email}</a></div></div><div><p className="text-xs font-bold uppercase tracking-[.18em] text-[#d8ff61]">{c.office}</p><p className="mt-5 flex gap-2 text-sm leading-6 text-white/60"><MapPin className="mt-1 h-4 w-4 shrink-0" />{CONTACT.address}</p></div></div><div className="flex flex-col gap-3 py-7 text-xs text-white/35 sm:flex-row sm:items-center sm:justify-between"><p>© {new Date().getFullYear()} BookMyLoad. {c.rights}</p><p>{c.designed}</p></div></div></footer>
+    <ChatBox />
+  </div>;
 }
+
+function HeroMetric({ icon: Icon, value, label }) { return <div className="flex items-center gap-4 border-b border-white/10 px-6 py-6 last:border-0 sm:border-b-0 sm:border-r sm:last:border-r-0 lg:px-9"><span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[#d8ff61]/10 text-[#d8ff61]"><Icon className="h-5 w-5" /></span><span><strong className="block text-lg font-extrabold text-white">{value}</strong><span className="text-xs text-white/45">{label}</span></span></div>; }
+function TrendingIcon(props) { return <BarChart3 {...props} />; }
+function SectionIntro({ eyebrow, title, text, dark = false }) { return <div className="max-w-3xl"><p className={`text-xs font-extrabold uppercase tracking-[.2em] ${dark ? 'text-[#d8ff61]' : 'text-[#497066]'}`}>{eyebrow}</p><h2 className={`mt-5 text-4xl font-black leading-[1.02] tracking-[-.055em] sm:text-6xl ${dark ? 'text-white' : ''}`}>{title}</h2><p className={`mt-5 max-w-2xl text-base leading-7 ${dark ? 'text-white/50' : 'text-[#4f625d]'}`}>{text}</p></div>; }
+function Reason({ icon: Icon, title, text }) { return <article className="rounded-[1.5rem] border border-[#12221e]/10 bg-white p-6"><Icon className="h-5 w-5 text-[#497066]" /><h3 className="mt-8 text-xl font-extrabold tracking-[-.035em]">{title}</h3><p className="mt-3 text-sm leading-6 text-[#60706c]">{text}</p></article>; }
+function ProductMockup({ copy }) { return <div className="rounded-[2rem] bg-[#071512] p-3 shadow-[0_35px_100px_rgba(18,34,30,.3)] sm:p-5"><div className="overflow-hidden rounded-[1.25rem] border border-white/10 bg-[#0c1c18]"><div className="flex items-center justify-between border-b border-white/10 px-4 py-3"><div className="flex gap-1.5"><i className="h-2 w-2 rounded-full bg-white/20" /><i className="h-2 w-2 rounded-full bg-white/20" /><i className="h-2 w-2 rounded-full bg-[#d8ff61]" /></div><span className="text-[10px] font-bold uppercase tracking-[.15em] text-white/30">{copy.overview}</span></div><div className="grid gap-3 p-4 sm:grid-cols-3"><MockStat label={copy.active} value="12" accent /><MockStat label={copy.onTime} value="94%" /><MockStat label={copy.margin} value="28.4%" /></div><div className="grid gap-3 px-4 pb-4 sm:grid-cols-[1.25fr_.75fr]"><div className="rounded-xl bg-white/[.04] p-4"><div className="flex items-center justify-between"><span className="text-xs font-semibold text-white/60">{copy.movements}</span><span className="h-2 w-2 rounded-full bg-[#d8ff61] shadow-[0_0_15px_#d8ff61]" /></div><div className="relative mt-5 h-40 overflow-hidden rounded-lg bg-[#132823]"><div className="absolute inset-0 opacity-20" style={{backgroundImage:'linear-gradient(rgba(255,255,255,.12) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.12) 1px,transparent 1px)',backgroundSize:'28px 28px'}} /><div className="absolute left-[14%] top-[62%] h-1 w-[68%] -rotate-12 rounded-full bg-[#d8ff61]/50" /><MapPin className="absolute right-[17%] top-[30%] h-6 w-6 text-[#d8ff61]" /><Truck className="absolute left-[35%] top-[54%] h-6 w-6 text-white" /></div></div><div className="space-y-2 rounded-xl bg-white/[.04] p-4"><span className="text-xs font-semibold text-white/60">{copy.attention}</span>{copy.alerts.map((label,index) => <div key={label} className="flex items-center justify-between rounded-lg bg-white/[.04] px-3 py-3 text-xs text-white/55"><span>{label}</span><b className="text-[#d8ff61]">{[2,4,3][index]}</b></div>)}</div></div></div></div>; }
+function MockStat({ label, value, accent }) { return <div className={`rounded-xl p-4 ${accent ? 'bg-[#d8ff61] text-[#071512]' : 'bg-white/[.04] text-white'}`}><span className={`text-[10px] uppercase tracking-[.16em] ${accent ? 'text-[#30443e]' : 'text-white/35'}`}>{label}</span><strong className="mt-3 block text-2xl">{value}</strong></div>; }
+function LanguageSelect({ language, setLanguage, mobile = false }) { return <label className={`flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 text-white/75 ${mobile ? 'h-11 w-full' : 'h-10'}`}><Globe2 className="h-4 w-4 text-[#d8ff61]" /><select aria-label="Language" value={landingLanguageNames[language] ? language : 'en'} onChange={event => setLanguage(event.target.value)} className="min-w-0 flex-1 cursor-pointer bg-transparent text-sm font-semibold outline-none">{Object.entries(landingLanguageNames).map(([code,name]) => <option key={code} value={code} className="bg-[#071512] text-white">{name}</option>)}</select></label>; }

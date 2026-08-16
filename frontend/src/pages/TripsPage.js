@@ -142,7 +142,7 @@ export default function TripsPage() {
       toast.success('Status updated');
       fetchData();
     } catch (error) {
-      toast.error('Failed to update status');
+      toast.error(error?.response?.data?.detail || 'Failed to update status');
     }
   };
 

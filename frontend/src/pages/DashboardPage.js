@@ -1,355 +1,50 @@
-import React, { useState, useEffect } from 'react';
-import { dashboardAPI, vehicleAPI, driverAPI, tripAPI, aiAPI } from '../lib/api';
-import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
-import { Button } from '../components/ui/button';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { complianceAPI, dashboardAPI, reportsAPI, tripAPI } from '../lib/api';
 import { Badge } from '../components/ui/badge';
-import { Textarea } from '../components/ui/textarea';
-import {
-  Car,
-  Users,
-  Route,
-  Wrench,
-  TrendingUp,
-  Truck,
-  MapPin,
-  Clock,
-  Sparkles,
-  Send,
-  Loader2,
-  AlertCircle,
-} from 'lucide-react';
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
-} from 'recharts';
+import { Card, CardContent } from '../components/ui/card';
+import { ArrowRight, BellRing, CheckCircle2, CircleDollarSign, ClipboardCheck, Clock3, Loader2, MapPin, Navigation, Route, ShieldAlert, TrendingUp, Truck, Users, WalletCards } from 'lucide-react';
+import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts';
 
-const COLORS = ['#f97316', '#3b82f6', '#22c55e', '#eab308', '#ef4444'];
+const money = value => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(Number(value || 0));
+const statusColor = { completed: '#79a87b', in_progress: '#d8ff61', assigned: '#67a8a0', pending: '#d6ad62', cancelled: '#cf756d' };
+const badgeClass = status => status === 'completed' ? 'bg-green-100 text-green-700' : status === 'in_progress' ? 'bg-[#d8ff61] text-[#17231f]' : status === 'cancelled' ? 'bg-red-100 text-red-700' : 'bg-[#e6ece4] text-[#52665f]';
+const emptyStats = { active_trips: 0, completed_trips_today: 0, available_vehicles: 0, total_vehicles: 0, available_drivers: 0, total_drivers: 0 };
+const emptySummary = { pending_expense_approvals: 0, outstanding: 0, delayed: 0, profit: 0, margin_percent: null, revenue: 0, approved_expenses: 0, on_time: 0, completed_trips: 0 };
+const emptyCompliance = { expiring: 0 };
+const emptyData = { stats: emptyStats, statuses: {}, trips: [], report: { summary: emptySummary }, compliance: emptyCompliance };
 
 export default function DashboardPage() {
-  const [stats, setStats] = useState(null);
-  const [tripSummary, setTripSummary] = useState({});
-  const [recentTrips, setRecentTrips] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [aiQuery, setAiQuery] = useState('');
-  const [aiInsight, setAiInsight] = useState('');
-  const [aiLoading, setAiLoading] = useState(false);
-
+  const [data, setData] = useState(emptyData); const [loading, setLoading] = useState(true); const [hasUnavailableData, setHasUnavailableData] = useState(false);
   useEffect(() => {
-    fetchDashboardData();
+    const now = new Date(); const start = new Date(now.getTime() - 29 * 86400000);
+    Promise.allSettled([dashboardAPI.getStats(), dashboardAPI.getTripSummary(), tripAPI.getAll(), reportsAPI.overview({ start_date: start.toISOString(), end_date: now.toISOString() }), complianceAPI.getSummary()]).then(results => {
+      const value = index => results[index].status === 'fulfilled' ? results[index].value.data : null;
+      const reportData = value(3);
+      setData({
+        stats: { ...emptyStats, ...(value(0) || {}) },
+        statuses: value(1) || {},
+        trips: Array.isArray(value(2)) ? value(2) : [],
+        report: { ...(reportData || {}), summary: { ...emptySummary, ...(reportData?.summary || {}) } },
+        compliance: { ...emptyCompliance, ...(value(4) || {}) },
+      });
+      setHasUnavailableData(results.some(result => result.status === 'rejected'));
+    }).finally(() => setLoading(false));
   }, []);
-
-  const fetchDashboardData = async () => {
-    try {
-      const [statsRes, summaryRes, tripsRes] = await Promise.all([
-        dashboardAPI.getStats(),
-        dashboardAPI.getTripSummary(),
-        tripAPI.getAll(),
-      ]);
-      setStats(statsRes.data);
-      setTripSummary(summaryRes.data);
-      setRecentTrips(tripsRes.data.slice(0, 5));
-    } catch (error) {
-      console.error('Failed to fetch dashboard data:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleAiQuery = async () => {
-    if (!aiQuery.trim()) return;
-    setAiLoading(true);
-    try {
-      const response = await aiAPI.getInsights(aiQuery);
-      setAiInsight(response.data.insight);
-    } catch (error) {
-      console.error('AI query failed:', error);
-      setAiInsight('Failed to get insights. Please try again.');
-    } finally {
-      setAiLoading(false);
-    }
-  };
-
-  const statCards = [
-    {
-      title: 'Total Vehicles',
-      value: stats?.total_vehicles || 0,
-      subValue: `${stats?.available_vehicles || 0} available`,
-      icon: Car,
-      color: 'text-blue-500',
-      bgColor: 'bg-blue-500/10',
-    },
-    {
-      title: 'Total Drivers',
-      value: stats?.total_drivers || 0,
-      subValue: `${stats?.available_drivers || 0} available`,
-      icon: Users,
-      color: 'text-green-500',
-      bgColor: 'bg-green-500/10',
-    },
-    {
-      title: 'Active Trips',
-      value: stats?.active_trips || 0,
-      subValue: `${stats?.completed_trips_today || 0} completed today`,
-      icon: Route,
-      color: 'text-orange-500',
-      bgColor: 'bg-orange-500/10',
-    },
-    {
-      title: 'Maintenance',
-      value: stats?.pending_maintenance || 0,
-      subValue: 'Vehicles pending',
-      icon: Wrench,
-      color: 'text-yellow-500',
-      bgColor: 'bg-yellow-500/10',
-    },
-  ];
-
-  const tripChartData = Object.entries(tripSummary).map(([status, count]) => ({
-    name: status.charAt(0).toUpperCase() + status.slice(1).replace('_', ' '),
-    value: count,
-  }));
-
-  const getStatusColor = (status) => {
-    const colors = {
-      pending: 'bg-yellow-500/20 text-yellow-500',
-      assigned: 'bg-blue-500/20 text-blue-500',
-      in_progress: 'bg-orange-500/20 text-orange-500',
-      completed: 'bg-green-500/20 text-green-500',
-      cancelled: 'bg-red-500/20 text-red-500',
-    };
-    return colors[status] || 'bg-slate-500/20 text-slate-500';
-  };
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 text-orange-500 animate-spin" />
-      </div>
-    );
-  }
-
-  return (
-    <div data-testid="dashboard-page" className="space-y-6">
-      {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="font-heading font-bold text-2xl sm:text-3xl text-white">
-            Dashboard
-          </h1>
-          <p className="text-slate-400 text-sm mt-1">
-            Overview of your fleet operations
-          </p>
-        </div>
-        <div className="flex items-center gap-2 text-sm text-slate-400">
-          <Clock className="w-4 h-4" />
-          <span>Last updated: {new Date().toLocaleTimeString()}</span>
-        </div>
-      </div>
-
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {statCards.map((stat, index) => (
-          <Card key={index} className="bg-slate-900 border-slate-800 hover:border-slate-700 transition-colors">
-            <CardContent className="p-4">
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-slate-400 text-sm font-medium">{stat.title}</p>
-                  <p className="font-heading font-bold text-3xl text-white mt-1">
-                    {stat.value}
-                  </p>
-                  <p className="text-slate-500 text-xs mt-1">{stat.subValue}</p>
-                </div>
-                <div className={`w-10 h-10 rounded-lg ${stat.bgColor} flex items-center justify-center`}>
-                  <stat.icon className={`w-5 h-5 ${stat.color}`} />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      {/* Charts Row */}
-      <div className="grid lg:grid-cols-2 gap-6">
-        {/* Trip Status Chart */}
-        <Card className="bg-slate-900 border-slate-800">
-          <CardHeader className="border-b border-slate-800 pb-4">
-            <CardTitle className="font-heading text-lg text-white flex items-center gap-2">
-              <TrendingUp className="w-5 h-5 text-orange-500" />
-              Trip Status Overview
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-4">
-            {tripChartData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={250}>
-                <PieChart>
-                  <Pie
-                    data={tripChartData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={60}
-                    outerRadius={90}
-                    paddingAngle={5}
-                    dataKey="value"
-                  >
-                    {tripChartData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip 
-                    contentStyle={{ 
-                      backgroundColor: '#1e293b', 
-                      border: '1px solid #334155',
-                      borderRadius: '8px',
-                    }}
-                    labelStyle={{ color: '#f8fafc' }}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="h-64 flex items-center justify-center text-slate-500">
-                <div className="text-center">
-                  <Route className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                  <p>No trip data available</p>
-                </div>
-              </div>
-            )}
-            <div className="flex flex-wrap justify-center gap-4 mt-4">
-              {tripChartData.map((item, index) => (
-                <div key={index} className="flex items-center gap-2">
-                  <div 
-                    className="w-3 h-3 rounded-full" 
-                    style={{ backgroundColor: COLORS[index % COLORS.length] }}
-                  />
-                  <span className="text-xs text-slate-400">{item.name}: {item.value}</span>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* AI Insights */}
-        <Card className="bg-slate-900 border-slate-800">
-          <CardHeader className="border-b border-slate-800 pb-4">
-            <CardTitle className="font-heading text-lg text-white flex items-center gap-2">
-              <Sparkles className="w-5 h-5 text-orange-500" />
-              AI Insights
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-4 space-y-4">
-            <div className="space-y-2">
-              <Textarea
-                placeholder="Ask AI for logistics insights... (e.g., 'How can I optimize my fleet utilization?')"
-                value={aiQuery}
-                onChange={(e) => setAiQuery(e.target.value)}
-                className="bg-slate-800 border-slate-700 text-white placeholder:text-slate-500 min-h-[80px] resize-none"
-              />
-              <Button 
-                onClick={handleAiQuery}
-                disabled={aiLoading || !aiQuery.trim()}
-                className="w-full bg-orange-500 hover:bg-orange-600 text-white font-heading font-semibold"
-              >
-                {aiLoading ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Analyzing...
-                  </>
-                ) : (
-                  <>
-                    <Send className="w-4 h-4 mr-2" />
-                    Get Insights
-                  </>
-                )}
-              </Button>
-            </div>
-            {aiInsight && (
-              <div className="p-4 bg-slate-800/50 rounded-lg border border-slate-700">
-                <p className="text-sm text-slate-300 whitespace-pre-wrap">{aiInsight}</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Recent Trips */}
-      <Card className="bg-slate-900 border-slate-800">
-        <CardHeader className="border-b border-slate-800 pb-4">
-          <CardTitle className="font-heading text-lg text-white flex items-center gap-2">
-            <Truck className="w-5 h-5 text-orange-500" />
-            Recent Trips
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
-          {recentTrips.length > 0 ? (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-slate-800">
-                    <th className="px-4 py-3 text-left text-xs font-heading font-semibold text-slate-500 uppercase tracking-wider">
-                      Trip ID
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-heading font-semibold text-slate-500 uppercase tracking-wider">
-                      Route
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-heading font-semibold text-slate-500 uppercase tracking-wider">
-                      Customer
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-heading font-semibold text-slate-500 uppercase tracking-wider">
-                      Status
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-heading font-semibold text-slate-500 uppercase tracking-wider">
-                      Cargo
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-800">
-                  {recentTrips.map((trip) => (
-                    <tr key={trip.trip_id} className="hover:bg-slate-800/50 transition-colors">
-                      <td className="px-4 py-3">
-                        <span className="font-mono text-xs text-orange-500">
-                          {trip.trip_id?.slice(0, 12)}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2 text-sm">
-                          <MapPin className="w-3 h-3 text-green-500" />
-                          <span className="text-slate-300 truncate max-w-[150px]">{trip.origin}</span>
-                          <span className="text-slate-600">→</span>
-                          <MapPin className="w-3 h-3 text-red-500" />
-                          <span className="text-slate-300 truncate max-w-[150px]">{trip.destination}</span>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-sm text-slate-300">
-                        {trip.customer_name}
-                      </td>
-                      <td className="px-4 py-3">
-                        <Badge className={getStatusColor(trip.status)}>
-                          {trip.status?.replace('_', ' ')}
-                        </Badge>
-                      </td>
-                      <td className="px-4 py-3 text-sm text-slate-400">
-                        {trip.cargo_type} ({trip.cargo_weight_tons}T)
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <div className="py-12 text-center text-slate-500">
-              <AlertCircle className="w-12 h-12 mx-auto mb-2 opacity-50" />
-              <p>No trips found. Create your first trip to get started.</p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+  const chartData = useMemo(() => Object.entries(data?.statuses || {}).map(([name,value]) => ({ name: name.replaceAll('_',' '), value, color: statusColor[name] || '#94a29d' })), [data]);
+  if (loading) return <div className="grid h-[60vh] place-items-center"><Loader2 className="h-8 w-8 animate-spin text-[#426b5f]" /></div>;
+  const { stats, report, compliance } = data; const summary = report.summary; const recent = data.trips.slice(0, 6); const attention = [{ icon: WalletCards, label: 'Expense approvals', value: summary.pending_expense_approvals, to: '/dashboard/expenses' }, { icon: ShieldAlert, label: 'Documents expiring', value: compliance.expiring, to: '/dashboard/compliance' }, { icon: CircleDollarSign, label: 'Outstanding invoices', value: money(summary.outstanding), to: '/dashboard/finance' }, { icon: Clock3, label: 'Delayed deliveries', value: summary.delayed, to: '/dashboard/loads' }];
+  return <div data-testid="dashboard-page" className="space-y-6">
+    {hasUnavailableData && <div role="status" className="rounded-2xl border border-[#ead8a4] bg-[#fff7df] px-4 py-3 text-sm font-semibold text-[#76591e]">Some dashboard metrics are temporarily unavailable. Available information is shown below.</div>}
+    <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end"><div><p className="text-xs font-bold uppercase tracking-[.18em] text-[#668078]">Operations pulse</p><h1 className="mt-2 text-3xl font-extrabold text-[#17231f] sm:text-4xl">Everything moving, at a glance.</h1><p className="mt-2 text-sm text-[#6b7d77]">Live fleet capacity, trip execution and commercial health.</p></div><div className="flex items-center gap-2 text-xs font-semibold text-[#758780]"><span className="h-2 w-2 rounded-full bg-[#78a77b] shadow-[0_0_0_5px_rgba(120,167,123,.12)]" />Updated {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div></div>
+    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4"><Metric icon={Navigation} label="Active trips" value={stats.active_trips} note={`${stats.completed_trips_today} completed today`} accent /><Metric icon={Truck} label="Fleet ready" value={`${stats.available_vehicles}/${stats.total_vehicles}`} note="Vehicles available" /><Metric icon={Users} label="Drivers ready" value={`${stats.available_drivers}/${stats.total_drivers}`} note="Drivers available" /><Metric icon={TrendingUp} label="30-day profit" value={money(summary.profit)} note={summary.margin_percent == null ? 'No invoiced revenue' : `${summary.margin_percent}% margin`} /></div>
+    <div className="grid gap-5 xl:grid-cols-[1.35fr_.65fr]">
+      <Card className="overflow-hidden border-[#d9e1d7] bg-white"><CardContent className="p-0"><div className="flex items-center justify-between border-b border-[#e3e8e1] p-5 sm:p-6"><div><h2 className="text-xl font-extrabold text-[#17231f]">Recent movements</h2><p className="mt-1 text-xs text-[#7b8b86]">Latest work across your organization</p></div><Link to="/dashboard/trips" className="flex items-center gap-1 text-xs font-bold text-[#426b5f]">All trips<ArrowRight className="h-4 w-4" /></Link></div><div className="divide-y divide-[#e8ece6]">{recent.map(trip => <Link to="/dashboard/trips" key={trip.trip_id} className="group grid gap-3 px-5 py-4 hover:bg-[#f6f8f4] sm:grid-cols-[1fr_auto] sm:items-center sm:px-6"><div className="min-w-0"><div className="flex items-center gap-2"><span className="font-mono text-[10px] font-bold uppercase tracking-wider text-[#7a8d86]">{trip.trip_id.slice(0,12)}</span><Badge className={badgeClass(trip.status)}>{trip.status.replaceAll('_',' ')}</Badge></div><div className="mt-2 flex min-w-0 items-center gap-2 text-sm font-bold text-[#243a33]"><MapPin className="h-4 w-4 shrink-0 text-[#78938a]" /><span className="truncate">{trip.origin}</span><ArrowRight className="h-3 w-3 shrink-0 text-[#a4b0ac]" /><span className="truncate">{trip.destination}</span></div><p className="mt-1 truncate pl-6 text-xs text-[#84938e]">{trip.customer_name} · {trip.cargo_type} · {trip.cargo_weight_tons}T</p></div><span className="hidden text-xs font-semibold text-[#80918b] sm:block">{new Date(trip.scheduled_date).toLocaleDateString()}</span></Link>)}{!recent.length && <div className="py-16 text-center text-sm text-[#84938e]">No trips yet. Create a load to begin.</div>}</div></CardContent></Card>
+      <div className="space-y-5"><Card className="border-[#d9e1d7] bg-[#10241f] text-white"><CardContent className="p-5 sm:p-6"><div className="flex items-start justify-between"><div><p className="text-xs font-bold uppercase tracking-[.16em] text-[#d8ff61]/65">Trip mix</p><h2 className="mt-2 text-xl font-extrabold">Execution status</h2></div><Route className="h-5 w-5 text-[#d8ff61]" /></div>{chartData.length ? <div className="relative mt-3 h-48"><ResponsiveContainer><PieChart><Pie data={chartData} dataKey="value" innerRadius={56} outerRadius={78} paddingAngle={4}>{chartData.map(item => <Cell key={item.name} fill={item.color} />)}</Pie><Tooltip contentStyle={{ background:'#fff', border:0, borderRadius:12, color:'#17231f' }} /></PieChart></ResponsiveContainer><div className="pointer-events-none absolute inset-0 grid place-items-center"><div className="text-center"><b className="text-3xl">{data.trips.length}</b><span className="block text-[10px] uppercase tracking-wider text-white/40">Total trips</span></div></div></div> : <div className="grid h-48 place-items-center text-sm text-white/40">No trip data</div>}<div className="flex flex-wrap gap-3">{chartData.map(item => <span key={item.name} className="flex items-center gap-1.5 text-[10px] capitalize text-white/55"><i className="h-2 w-2 rounded-full" style={{background:item.color}} />{item.name} {item.value}</span>)}</div></CardContent></Card></div>
     </div>
-  );
+    <div className="grid gap-5 xl:grid-cols-[.8fr_1.2fr]"><Card className="border-[#d9e1d7] bg-white"><CardContent className="p-5 sm:p-6"><div className="flex items-center gap-2"><BellRing className="h-5 w-5 text-[#426b5f]" /><h2 className="text-xl font-extrabold text-[#17231f]">Needs attention</h2></div><div className="mt-5 grid gap-2 sm:grid-cols-2 xl:grid-cols-1">{attention.map(item => <Link key={item.label} to={item.to} className="flex items-center gap-3 rounded-xl border border-[#e0e6de] p-3 transition hover:border-[#aac4b9] hover:bg-[#f7f9f5]"><span className="grid h-9 w-9 place-items-center rounded-lg bg-[#eaf0e8] text-[#426b5f]"><item.icon className="h-4 w-4" /></span><span className="flex-1 text-sm font-semibold text-[#52665f]">{item.label}</span><b className="text-sm text-[#17231f]">{item.value}</b></Link>)}</div></CardContent></Card><Card className="border-[#d9e1d7] bg-[#d8ff61]"><CardContent className="grid gap-5 p-6 sm:grid-cols-3"><BusinessStat label="Pre-tax revenue" value={money(summary.revenue)} icon={CircleDollarSign} /><BusinessStat label="Approved costs" value={money(summary.approved_expenses)} icon={WalletCards} /><BusinessStat label="On-time deliveries" value={`${summary.on_time}/${summary.completed_trips}`} icon={CheckCircle2} /></CardContent></Card></div>
+  </div>;
 }
+
+function Metric({ icon: Icon, label, value, note, accent }) { return <Card className={`border-[#d9e1d7] ${accent ? 'bg-[linear-gradient(135deg,#e6ff9b,#d8ff61)]' : 'bg-white'}`}><CardContent className="p-5"><div className="flex items-start justify-between"><div><p className="text-xs font-bold uppercase tracking-[.12em] text-[#60756e]">{label}</p><p className="mt-4 text-4xl font-extrabold tracking-[-.05em] text-[#17231f]">{value}</p><p className="mt-2 text-xs text-[#60756e]">{note}</p></div><span className={`grid h-11 w-11 place-items-center rounded-xl ${accent ? 'bg-[#17231f] text-[#d8ff61]' : 'bg-[#edf2eb] text-[#426b5f]'}`}><Icon className="h-5 w-5" /></span></div></CardContent></Card>; }
+function BusinessStat({ label, value, icon: Icon }) { return <div className="border-[#17231f]/15 sm:border-r sm:last:border-0"><Icon className="h-5 w-5 text-[#3d5b52]" /><p className="mt-5 text-xs font-bold uppercase tracking-[.1em] text-[#52665f]">{label}</p><p className="mt-2 text-2xl font-extrabold tracking-[-.04em] text-[#17231f]">{value}</p></div>; }

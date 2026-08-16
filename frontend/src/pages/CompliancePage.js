@@ -1,469 +1,91 @@
-import React, { useState, useEffect } from 'react';
-import { tripAPI, vehicleAPI, driverAPI, complianceAPI } from '../lib/api';
-import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
-import { Button } from '../components/ui/button';
+import React, { useEffect, useMemo, useState } from 'react';
+import { complianceAPI, driverAPI, vehicleAPI } from '../lib/api';
+import { useAuth } from '../context/AuthContext';
 import { Badge } from '../components/ui/badge';
-import { Checkbox } from '../components/ui/checkbox';
+import { Button } from '../components/ui/button';
+import { Card, CardContent } from '../components/ui/card';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog';
+import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
-import { Textarea } from '../components/ui/textarea';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '../components/ui/dialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '../components/ui/select';
-import {
-  ClipboardCheck,
-  Shield,
-  AlertTriangle,
-  CheckCircle2,
-  XCircle,
-  Loader2,
-  FileCheck,
-  Truck,
-  User,
-  Calendar,
-} from 'lucide-react';
+import { AlertTriangle, Clock, Eye, FileCheck, FileUp, Loader2, ShieldCheck, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
+const documentTypes = {
+  driver: [['license', 'Driving licence'], ['identity', 'Identity proof'], ['medical', 'Medical certificate']],
+  vehicle: [['registration', 'Registration certificate'], ['insurance', 'Insurance'], ['fitness', 'Fitness certificate'], ['pollution', 'Pollution certificate'], ['permit', 'National/state permit']],
+};
+const blank = { entity_type: 'vehicle', entity_id: '', document_type: 'registration', document_number: '', issued_at: '', expires_at: '', file_name: '', mime_type: '', file_data: '', notes: '' };
+const errorText = error => error?.response?.data?.detail || 'Operation failed';
+
 export default function CompliancePage() {
-  const [trips, setTrips] = useState([]);
-  const [vehicles, setVehicles] = useState([]);
+  const { user } = useAuth();
+  const [summary, setSummary] = useState(null);
   const [drivers, setDrivers] = useState([]);
+  const [vehicles, setVehicles] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [isCheckDialogOpen, setIsCheckDialogOpen] = useState(false);
-  const [selectedTrip, setSelectedTrip] = useState(null);
-  const [checkForm, setCheckForm] = useState({
-    tires_ok: false,
-    brakes_ok: false,
-    lights_ok: false,
-    mirrors_ok: false,
-    fuel_level: 'full',
-    documents_ok: false,
-    notes: '',
-  });
+  const [open, setOpen] = useState(false);
+  const [preview, setPreview] = useState(null);
+  const [form, setForm] = useState(blank);
+  const canManage = user?.permissions?.includes('*') || user?.permissions?.includes('compliance.*');
 
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  const fetchData = async () => {
+  const load = async () => {
     try {
-      const [tripsRes, vehiclesRes, driversRes] = await Promise.all([
-        tripAPI.getAll(),
-        vehicleAPI.getAll(),
-        driverAPI.getAll(),
-      ]);
-      setTrips(tripsRes.data);
-      setVehicles(vehiclesRes.data);
-      setDrivers(driversRes.data);
-    } catch (error) {
-      console.error('Failed to fetch data:', error);
-      toast.error('Failed to load data');
-    } finally {
-      setLoading(false);
-    }
+      const [summaryResponse, driverResponse, vehicleResponse] = await Promise.all([complianceAPI.getSummary(), driverAPI.getAll(), vehicleAPI.getAll()]);
+      setSummary(summaryResponse.data); setDrivers(driverResponse.data); setVehicles(vehicleResponse.data);
+    } catch (error) { toast.error(errorText(error)); } finally { setLoading(false); }
   };
+  useEffect(() => { load(); }, []);
 
-  const handlePreTripCheck = async () => {
-    if (!selectedTrip) return;
-    
+  const entities = form.entity_type === 'driver' ? drivers : vehicles;
+  const entityNames = useMemo(() => Object.fromEntries([...drivers.map(x => [x.driver_id, x.name]), ...vehicles.map(x => [x.vehicle_id, x.registration_number])]), [drivers, vehicles]);
+
+  const showUpload = () => {
+    const entityId = vehicles[0]?.vehicle_id || '';
+    setForm({ ...blank, entity_id: entityId });
+    setOpen(true);
+  };
+  const changeEntityType = entityType => {
+    const list = entityType === 'driver' ? drivers : vehicles;
+    setForm(current => ({ ...current, entity_type: entityType, entity_id: list[0]?.driver_id || list[0]?.vehicle_id || '', document_type: entityType === 'driver' ? 'license' : 'registration' }));
+  };
+  const chooseFile = event => {
+    const file = event.target.files?.[0]; if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => setForm(current => ({ ...current, file_name: file.name, mime_type: file.type, file_data: reader.result }));
+    reader.readAsDataURL(file);
+  };
+  const upload = async event => {
+    event.preventDefault();
+    if (!form.entity_id) return toast.error(`Select a ${form.entity_type}`);
     try {
-      await complianceAPI.createPreTripCheck({
-        trip_id: selectedTrip.trip_id,
-        driver_id: selectedTrip.driver_id,
-        vehicle_id: selectedTrip.vehicle_id,
-        ...checkForm,
-      });
-      toast.success('Pre-trip check completed');
-      setIsCheckDialogOpen(false);
-      resetCheckForm();
-    } catch (error) {
-      console.error('Failed to save pre-trip check:', error);
-      toast.error('Failed to save pre-trip check');
-    }
+      await complianceAPI.uploadDocument({ ...form, issued_at: form.issued_at ? new Date(form.issued_at).toISOString() : null, expires_at: form.expires_at ? new Date(form.expires_at).toISOString() : null });
+      toast.success('Document uploaded'); setOpen(false); setForm(blank); load();
+    } catch (error) { toast.error(errorText(error)); }
   };
-
-  const resetCheckForm = () => {
-    setSelectedTrip(null);
-    setCheckForm({
-      tires_ok: false,
-      brakes_ok: false,
-      lights_ok: false,
-      mirrors_ok: false,
-      fuel_level: 'full',
-      documents_ok: false,
-      notes: '',
-    });
+  const verify = async (id, status) => { try { await complianceAPI.verifyDocument(id, status); toast.success(`Document ${status}`); load(); } catch (error) { toast.error(errorText(error)); } };
+  const view = async id => {
+    try { setPreview((await complianceAPI.getFile(id)).data); }
+    catch (error) { toast.error(errorText(error)); }
   };
+  const remove = async id => { if (!window.confirm('Delete this document?')) return; try { await complianceAPI.deleteDocument(id); load(); } catch (error) { toast.error(errorText(error)); } };
 
-  const getDriverName = (driverId) => {
-    const driver = drivers.find(d => d.driver_id === driverId);
-    return driver?.name || 'Unassigned';
-  };
-
-  const getVehicleNumber = (vehicleId) => {
-    const vehicle = vehicles.find(v => v.vehicle_id === vehicleId);
-    return vehicle?.registration_number || 'Unassigned';
-  };
-
-  // Get drivers with expiring licenses (within 30 days)
-  const expiringLicenses = drivers.filter(d => {
-    if (!d.license_expiry) return false;
-    const expiry = new Date(d.license_expiry);
-    const thirtyDaysFromNow = new Date();
-    thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
-    return expiry <= thirtyDaysFromNow;
-  });
-
-  // Get vehicles needing maintenance
-  const maintenanceVehicles = vehicles.filter(v => v.status === 'maintenance');
-
-  // Pending trips that need pre-trip checks
-  const assignedTrips = trips.filter(t => t.status === 'assigned');
-
-  const allChecksPassed = Object.entries(checkForm)
-    .filter(([key]) => key !== 'notes' && key !== 'fuel_level')
-    .every(([, value]) => value === true);
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 text-orange-500 animate-spin" />
-      </div>
-    );
-  }
-
-  return (
-    <div data-testid="compliance-page" className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="font-heading font-bold text-2xl sm:text-3xl text-white">
-          Safety & Compliance
-        </h1>
-        <p className="text-slate-400 text-sm mt-1">
-          Pre-trip checks, license management, and safety compliance
-        </p>
-      </div>
-
-      {/* Alert Cards */}
-      <div className="grid md:grid-cols-3 gap-4">
-        <Card className={`border-l-4 ${expiringLicenses.length > 0 ? 'border-l-yellow-500 bg-yellow-500/5' : 'border-l-green-500 bg-green-500/5'} bg-slate-900 border-slate-800`}>
-          <CardContent className="p-4">
-            <div className="flex items-start gap-3">
-              {expiringLicenses.length > 0 ? (
-                <AlertTriangle className="w-5 h-5 text-yellow-500 mt-0.5" />
-              ) : (
-                <CheckCircle2 className="w-5 h-5 text-green-500 mt-0.5" />
-              )}
-              <div>
-                <h3 className="font-heading font-semibold text-white">License Expiry</h3>
-                <p className="text-slate-400 text-sm mt-1">
-                  {expiringLicenses.length > 0 
-                    ? `${expiringLicenses.length} driver(s) with expiring licenses`
-                    : 'All licenses up to date'
-                  }
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className={`border-l-4 ${maintenanceVehicles.length > 0 ? 'border-l-orange-500 bg-orange-500/5' : 'border-l-green-500 bg-green-500/5'} bg-slate-900 border-slate-800`}>
-          <CardContent className="p-4">
-            <div className="flex items-start gap-3">
-              {maintenanceVehicles.length > 0 ? (
-                <AlertTriangle className="w-5 h-5 text-orange-500 mt-0.5" />
-              ) : (
-                <CheckCircle2 className="w-5 h-5 text-green-500 mt-0.5" />
-              )}
-              <div>
-                <h3 className="font-heading font-semibold text-white">Vehicle Maintenance</h3>
-                <p className="text-slate-400 text-sm mt-1">
-                  {maintenanceVehicles.length > 0 
-                    ? `${maintenanceVehicles.length} vehicle(s) in maintenance`
-                    : 'All vehicles operational'
-                  }
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-l-4 border-l-blue-500 bg-blue-500/5 bg-slate-900 border-slate-800">
-          <CardContent className="p-4">
-            <div className="flex items-start gap-3">
-              <FileCheck className="w-5 h-5 text-blue-500 mt-0.5" />
-              <div>
-                <h3 className="font-heading font-semibold text-white">Pre-Trip Checks</h3>
-                <p className="text-slate-400 text-sm mt-1">
-                  {assignedTrips.length} trip(s) pending pre-trip check
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid lg:grid-cols-2 gap-6">
-        {/* Pre-Trip Checks Section */}
-        <Card className="bg-slate-900 border-slate-800">
-          <CardHeader className="border-b border-slate-800 pb-4">
-            <CardTitle className="font-heading text-lg text-white flex items-center gap-2">
-              <ClipboardCheck className="w-5 h-5 text-orange-500" />
-              Pre-Trip Inspection Queue
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-0">
-            {assignedTrips.length > 0 ? (
-              <div className="divide-y divide-slate-800">
-                {assignedTrips.map((trip) => (
-                  <div key={trip.trip_id} className="p-4 hover:bg-slate-800/50 transition-colors">
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2">
-                          <span className="font-mono text-xs text-orange-500">{trip.trip_id?.slice(0, 12)}</span>
-                          <Badge className="bg-blue-500/20 text-blue-500">Assigned</Badge>
-                        </div>
-                        <p className="text-white text-sm mb-1">
-                          {trip.origin} → {trip.destination}
-                        </p>
-                        <div className="flex flex-wrap gap-3 text-xs text-slate-400">
-                          <span className="flex items-center gap-1">
-                            <User className="w-3 h-3" />
-                            {getDriverName(trip.driver_id)}
-                          </span>
-                          <span className="flex items-center gap-1">
-                            <Truck className="w-3 h-3" />
-                            {getVehicleNumber(trip.vehicle_id)}
-                          </span>
-                          <span className="flex items-center gap-1">
-                            <Calendar className="w-3 h-3" />
-                            {new Date(trip.scheduled_date).toLocaleDateString()}
-                          </span>
-                        </div>
-                      </div>
-                      <Button
-                        size="sm"
-                        onClick={() => { setSelectedTrip(trip); setIsCheckDialogOpen(true); }}
-                        className="bg-orange-500 hover:bg-orange-600 text-white font-heading font-semibold"
-                      >
-                        Start Check
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="p-8 text-center text-slate-500">
-                <CheckCircle2 className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                <p>No trips pending pre-trip checks</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* License Alerts */}
-        <Card className="bg-slate-900 border-slate-800">
-          <CardHeader className="border-b border-slate-800 pb-4">
-            <CardTitle className="font-heading text-lg text-white flex items-center gap-2">
-              <Shield className="w-5 h-5 text-orange-500" />
-              License & Document Alerts
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-0">
-            {expiringLicenses.length > 0 ? (
-              <div className="divide-y divide-slate-800">
-                {expiringLicenses.map((driver) => {
-                  const daysUntilExpiry = Math.ceil(
-                    (new Date(driver.license_expiry) - new Date()) / (1000 * 60 * 60 * 24)
-                  );
-                  const isExpired = daysUntilExpiry < 0;
-                  
-                  return (
-                    <div key={driver.driver_id} className="p-4 hover:bg-slate-800/50 transition-colors">
-                      <div className="flex items-start justify-between gap-4">
-                        <div>
-                          <p className="text-white font-medium">{driver.name}</p>
-                          <p className="text-slate-500 text-xs font-mono mt-1">
-                            License: {driver.license_number}
-                          </p>
-                        </div>
-                        <div className="text-right">
-                          <Badge className={isExpired ? 'bg-red-500/20 text-red-500' : 'bg-yellow-500/20 text-yellow-500'}>
-                            {isExpired ? 'Expired' : `${daysUntilExpiry} days left`}
-                          </Badge>
-                          <p className="text-slate-500 text-xs mt-1">
-                            {new Date(driver.license_expiry).toLocaleDateString()}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="p-8 text-center text-slate-500">
-                <CheckCircle2 className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                <p>All driver licenses are valid</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Maintenance Vehicles */}
-      {maintenanceVehicles.length > 0 && (
-        <Card className="bg-slate-900 border-slate-800">
-          <CardHeader className="border-b border-slate-800 pb-4">
-            <CardTitle className="font-heading text-lg text-white flex items-center gap-2">
-              <AlertTriangle className="w-5 h-5 text-yellow-500" />
-              Vehicles in Maintenance
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-0">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-slate-800">
-                    <th className="px-4 py-3 text-left text-xs font-heading font-semibold text-slate-500 uppercase">
-                      Vehicle
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-heading font-semibold text-slate-500 uppercase">
-                      Type
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-heading font-semibold text-slate-500 uppercase">
-                      Make/Model
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-heading font-semibold text-slate-500 uppercase">
-                      Status
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-800">
-                  {maintenanceVehicles.map((vehicle) => (
-                    <tr key={vehicle.vehicle_id} className="hover:bg-slate-800/50 transition-colors">
-                      <td className="px-4 py-3">
-                        <span className="font-mono text-sm text-white">{vehicle.registration_number}</span>
-                      </td>
-                      <td className="px-4 py-3 text-slate-300">{vehicle.vehicle_type}</td>
-                      <td className="px-4 py-3 text-slate-300">{vehicle.make} {vehicle.model}</td>
-                      <td className="px-4 py-3">
-                        <Badge className="bg-yellow-500/20 text-yellow-500">Maintenance</Badge>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Pre-Trip Check Dialog */}
-      <Dialog open={isCheckDialogOpen} onOpenChange={(open) => { setIsCheckDialogOpen(open); if (!open) resetCheckForm(); }}>
-        <DialogContent className="bg-slate-900 border-slate-800 max-w-md">
-          <DialogHeader>
-            <DialogTitle className="font-heading text-xl text-white">
-              Pre-Trip Safety Check
-            </DialogTitle>
-          </DialogHeader>
-          {selectedTrip && (
-            <div className="space-y-4 mt-4">
-              <div className="p-3 bg-slate-800/50 rounded-lg">
-                <p className="text-sm text-slate-400">Trip</p>
-                <p className="text-white">{selectedTrip.origin} → {selectedTrip.destination}</p>
-                <div className="flex gap-4 mt-2 text-xs text-slate-500">
-                  <span>Driver: {getDriverName(selectedTrip.driver_id)}</span>
-                  <span>Vehicle: {getVehicleNumber(selectedTrip.vehicle_id)}</span>
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <h4 className="text-sm font-medium text-slate-300">Safety Checklist</h4>
-                
-                {[
-                  { key: 'tires_ok', label: 'Tires in good condition' },
-                  { key: 'brakes_ok', label: 'Brakes functioning properly' },
-                  { key: 'lights_ok', label: 'All lights working' },
-                  { key: 'mirrors_ok', label: 'Mirrors adjusted and clean' },
-                  { key: 'documents_ok', label: 'All documents present' },
-                ].map((item) => (
-                  <div key={item.key} className="flex items-center gap-3">
-                    <Checkbox
-                      id={item.key}
-                      checked={checkForm[item.key]}
-                      onCheckedChange={(checked) => setCheckForm({ ...checkForm, [item.key]: checked })}
-                      className="border-slate-600 data-[state=checked]:bg-orange-500"
-                    />
-                    <Label htmlFor={item.key} className="text-slate-300 cursor-pointer">
-                      {item.label}
-                    </Label>
-                    {checkForm[item.key] ? (
-                      <CheckCircle2 className="w-4 h-4 text-green-500 ml-auto" />
-                    ) : (
-                      <XCircle className="w-4 h-4 text-slate-600 ml-auto" />
-                    )}
-                  </div>
-                ))}
-              </div>
-
-              <div className="space-y-2">
-                <Label className="text-slate-300">Fuel Level</Label>
-                <Select
-                  value={checkForm.fuel_level}
-                  onValueChange={(value) => setCheckForm({ ...checkForm, fuel_level: value })}
-                >
-                  <SelectTrigger className="bg-slate-800 border-slate-700 text-white">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="bg-slate-800 border-slate-700">
-                    <SelectItem value="full" className="text-white">Full</SelectItem>
-                    <SelectItem value="three_quarter" className="text-white">3/4</SelectItem>
-                    <SelectItem value="half" className="text-white">1/2</SelectItem>
-                    <SelectItem value="quarter" className="text-white">1/4</SelectItem>
-                    <SelectItem value="empty" className="text-white">Empty</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label className="text-slate-300">Notes</Label>
-                <Textarea
-                  placeholder="Any issues or observations..."
-                  value={checkForm.notes}
-                  onChange={(e) => setCheckForm({ ...checkForm, notes: e.target.value })}
-                  className="bg-slate-800 border-slate-700 text-white min-h-[80px]"
-                />
-              </div>
-
-              <div className="flex justify-end gap-3 pt-4">
-                <Button 
-                  variant="outline" 
-                  onClick={() => { setIsCheckDialogOpen(false); resetCheckForm(); }}
-                  className="border-slate-700 text-slate-300 hover:bg-slate-800"
-                >
-                  Cancel
-                </Button>
-                <Button 
-                  onClick={handlePreTripCheck}
-                  disabled={!allChecksPassed}
-                  className="bg-orange-500 hover:bg-orange-600 text-white font-heading font-semibold disabled:opacity-50"
-                >
-                  {allChecksPassed ? 'Complete Check' : 'Complete All Items'}
-                </Button>
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
-    </div>
-  );
+  if (loading) return <div className="h-64 flex items-center justify-center"><Loader2 className="animate-spin text-orange-500" /></div>;
+  return <div className="space-y-6">
+    <div className="flex justify-between items-center"><div><h1 className="text-3xl font-bold text-white">Documents & Compliance</h1><p className="text-sm text-slate-400">Upload, verify and monitor driver and vehicle records.</p></div>{canManage && <Button onClick={showUpload} className="bg-orange-500"><FileUp className="w-4 h-4 mr-2" />Upload</Button>}</div>
+    <div className="grid grid-cols-2 md:grid-cols-4 gap-3"><Stat icon={FileCheck} label="Documents" value={summary.total} /><Stat icon={Clock} label="Pending verification" value={summary.pending} /><Stat icon={AlertTriangle} label="Expiring in 30 days" value={summary.expiring} /><Stat icon={ShieldCheck} label="Expired" value={summary.expired} /></div>
+    <Card className="bg-slate-900 border-slate-800"><CardContent className="p-0 overflow-x-auto"><table className="w-full text-sm"><thead><tr className="border-b border-slate-800 text-left text-xs uppercase text-slate-500">{['Entity', 'Document', 'Number', 'Expiry', 'Verification', 'Actions'].map(value => <th key={value} className="p-3">{value}</th>)}</tr></thead><tbody>{summary.documents.map(document => <tr key={document.document_id} className="border-b border-slate-800"><td className="p-3 text-white"><span className="capitalize text-slate-500">{document.entity_type}</span><br />{entityNames[document.entity_id] || document.entity_id}</td><td className="p-3 text-slate-300 capitalize">{document.document_type.replaceAll('_', ' ')}</td><td className="p-3 text-slate-400">{document.document_number || '—'}</td><td className="p-3"><Badge className={document.compliance_state === 'expired' ? 'bg-red-500/20 text-red-400' : document.compliance_state === 'expiring' ? 'bg-yellow-500/20 text-yellow-400' : 'bg-green-500/20 text-green-400'}>{document.expires_at ? new Date(document.expires_at).toLocaleDateString() : 'No expiry'}</Badge></td><td className="p-3"><Badge className="bg-slate-700 text-slate-300">{document.verification_status}</Badge></td><td className="p-3"><div className="flex gap-1"><Button size="icon" variant="ghost" onClick={() => view(document.document_id)}><Eye className="w-4 h-4" /></Button>{canManage && document.verification_status === 'pending' && <><Button size="sm" variant="ghost" onClick={() => verify(document.document_id, 'verified')} className="text-green-400">Verify</Button><Button size="sm" variant="ghost" onClick={() => verify(document.document_id, 'rejected')} className="text-red-400">Reject</Button></>}{canManage && <Button size="icon" variant="ghost" onClick={() => remove(document.document_id)} className="text-red-400"><Trash2 className="w-4 h-4" /></Button>}</div></td></tr>)}</tbody></table>{!summary.documents.length && <div className="py-14 text-center text-slate-500"><FileCheck className="w-10 h-10 mx-auto mb-2" />No documents uploaded yet.</div>}</CardContent></Card>
+    <Dialog open={open} onOpenChange={setOpen}><DialogContent className="bg-slate-900 border-slate-800 text-white"><DialogHeader><DialogTitle>Upload compliance document</DialogTitle></DialogHeader><form onSubmit={upload} className="space-y-3"><div className="grid grid-cols-2 gap-3"><SelectField label="Entity type" value={form.entity_type} onChange={event => changeEntityType(event.target.value)} options={[['driver', 'Driver'], ['vehicle', 'Vehicle']]} /><SelectField required label="Entity" value={form.entity_id} onChange={event => setForm({ ...form, entity_id: event.target.value })} options={entities.map(entity => [entity.driver_id || entity.vehicle_id, entity.name || entity.registration_number])} placeholder={`Select ${form.entity_type}`} /><SelectField required label="Document type" value={form.document_type} onChange={event => setForm({ ...form, document_type: event.target.value })} options={documentTypes[form.entity_type]} /><Field label="Document number" value={form.document_number} onChange={event => setForm({ ...form, document_number: event.target.value })} /><Field type="date" label="Issue date" value={form.issued_at} onChange={event => setForm({ ...form, issued_at: event.target.value })} /><Field type="date" label="Expiry date" value={form.expires_at} onChange={event => setForm({ ...form, expires_at: event.target.value })} /></div><div><Label>File (PDF or image, maximum 5 MB)</Label><Input required type="file" accept="application/pdf,image/jpeg,image/png,image/webp" onChange={chooseFile} className="bg-slate-800 border-slate-700 mt-1" /></div><Button type="submit" disabled={!form.file_data || !form.entity_id} className="w-full bg-orange-500">Upload document</Button></form></DialogContent></Dialog>
+    <Dialog open={!!preview} onOpenChange={isOpen => !isOpen && setPreview(null)}>
+      <DialogContent className="bg-slate-900 border-slate-800 text-white max-w-4xl">
+        <DialogHeader><DialogTitle>{preview?.file_name || 'Document preview'}</DialogTitle></DialogHeader>
+        {preview?.mime_type === 'application/pdf'
+          ? <iframe title="Document preview" src={preview.file_data} className="w-full h-[70vh] rounded bg-white" />
+          : preview && <img src={preview.file_data} alt={preview.file_name} className="max-h-[70vh] w-full object-contain rounded bg-slate-950" />}
+      </DialogContent>
+    </Dialog>
+  </div>;
 }
+
+function Stat({ icon: Icon, label, value }) { return <Card className="bg-slate-900 border-slate-800"><CardContent className="p-4"><Icon className="w-4 h-4 text-orange-500" /><p className="text-2xl text-white font-bold mt-2">{value}</p><p className="text-xs text-slate-500">{label}</p></CardContent></Card>; }
+function Field({ label, ...props }) { return <div><Label>{label}</Label><Input {...props} className="bg-slate-800 border-slate-700 mt-1" /></div>; }
+function SelectField({ label, options, placeholder, ...props }) { return <div><Label>{label}</Label><select {...props} className="w-full h-10 rounded border border-slate-700 bg-slate-800 px-2 mt-1">{placeholder && <option value="">{placeholder}</option>}{options.map(([value, text]) => <option value={value} key={value}>{text}</option>)}</select></div>; }

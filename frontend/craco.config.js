@@ -56,25 +56,18 @@ const webpackConfig = {
   },
 };
 
-webpackConfig.devServer = (devServerConfig) => {
-  // Add health check endpoints if enabled
-  if (config.enableHealthCheck && setupHealthEndpoints && healthPluginInstance) {
-    const originalSetupMiddlewares = devServerConfig.setupMiddlewares;
-
-    devServerConfig.setupMiddlewares = (middlewares, devServer) => {
-      // Call original setup if exists
-      if (originalSetupMiddlewares) {
-        middlewares = originalSetupMiddlewares(middlewares, devServer);
-      }
-
-      // Setup health endpoints
-      setupHealthEndpoints(devServer, healthPluginInstance);
-
-      return middlewares;
-    };
-  }
-
-  return devServerConfig;
+webpackConfig.devServer = {
+  // Serve the React application for direct client-side routes such as
+  // /dashboard and /driver, including browser refreshes and shared links.
+  historyApiFallback: true,
 };
+
+// Add health check endpoints if enabled
+if (config.enableHealthCheck && setupHealthEndpoints && healthPluginInstance) {
+  webpackConfig.devServer.setupMiddlewares = (middlewares, devServer) => {
+    setupHealthEndpoints(devServer, healthPluginInstance);
+    return middlewares;
+  };
+}
 
 module.exports = webpackConfig;

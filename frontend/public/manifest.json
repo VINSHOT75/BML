@@ -1,11 +1,11 @@
 {
   "name": "BookMyLoad",
   "short_name": "BookMyLoad",
-  "description": "Connecting Loads, Delivering Solutions - India's #1 Load Management Platform",
+  "description": "The connected operating system for transport teams",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#1B4B7A",
+  "background_color": "#edf1eb",
+  "theme_color": "#071512",
   "orientation": "portrait-primary",
   "icons": [
     {

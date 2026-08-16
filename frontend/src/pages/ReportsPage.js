@@ -1,490 +1,54 @@
-import React, { useState, useEffect } from 'react';
-import { dashboardAPI, tripAPI, aiAPI } from '../lib/api';
-import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { customerAPI, driverAPI, reportsAPI, vehicleAPI } from '../lib/api';
+import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
-import { Textarea } from '../components/ui/textarea';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '../components/ui/select';
-import {
-  BarChart3,
-  TrendingUp,
-  Truck,
-  Users,
-  Route,
-  Sparkles,
-  Send,
-  Loader2,
-  Download,
-  Calendar,
-} from 'lucide-react';
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
-  LineChart,
-  Line,
-  Legend,
-  Area,
-  AreaChart,
-} from 'recharts';
+import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
+import { Input } from '../components/ui/input';
+import { Label } from '../components/ui/label';
+import { BarChart3, Banknote, Download, FileText, Loader2, Printer, RefreshCw, Route, TrendingUp, WalletCards } from 'lucide-react';
+import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell as ChartCell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { toast } from 'sonner';
 
-const COLORS = ['#f97316', '#3b82f6', '#22c55e', '#eab308', '#ef4444', '#8b5cf6'];
+const COLORS = ['#f97316', '#3b82f6', '#22c55e', '#eab308', '#ef4444', '#8b5cf6', '#06b6d4'];
+const formatDate = value => value.toISOString().slice(0, 10);
+const initialFilters = { start_date: formatDate(new Date(Date.now() - 29 * 86400000)), end_date: formatDate(new Date()), customer_id: '', driver_id: '', vehicle_id: '', load_status: '', invoice_status: '', expense_category: '' };
+const currency = value => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(Number(value || 0));
+const errorText = error => error?.response?.data?.detail || 'Failed to load report';
+const query = filters => Object.fromEntries(Object.entries(filters).filter(([, value]) => value !== '').map(([key, value]) => [key, key.endsWith('_date') ? new Date(`${value}${key === 'end_date' ? 'T23:59:59' : 'T00:00:00'}`).toISOString() : value]));
 
 export default function ReportsPage() {
-  const [stats, setStats] = useState(null);
-  const [tripSummary, setTripSummary] = useState({});
-  const [trips, setTrips] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [reportPeriod, setReportPeriod] = useState('week');
-  const [aiQuery, setAiQuery] = useState('');
-  const [aiInsight, setAiInsight] = useState('');
-  const [aiLoading, setAiLoading] = useState(false);
-
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  const fetchData = async () => {
-    try {
-      const [statsRes, summaryRes, tripsRes] = await Promise.all([
-        dashboardAPI.getStats(),
-        dashboardAPI.getTripSummary(),
-        tripAPI.getAll(),
-      ]);
-      setStats(statsRes.data);
-      setTripSummary(summaryRes.data);
-      setTrips(tripsRes.data);
-    } catch (error) {
-      console.error('Failed to fetch report data:', error);
-      toast.error('Failed to load report data');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleAiQuery = async () => {
-    if (!aiQuery.trim()) return;
-    setAiLoading(true);
-    try {
-      const response = await aiAPI.getInsights(aiQuery);
-      setAiInsight(response.data.insight);
-    } catch (error) {
-      console.error('AI query failed:', error);
-      setAiInsight('Failed to get insights. Please try again.');
-    } finally {
-      setAiLoading(false);
-    }
-  };
-
-  // Prepare chart data
-  const tripStatusData = Object.entries(tripSummary).map(([status, count]) => ({
-    name: status.charAt(0).toUpperCase() + status.slice(1).replace('_', ' '),
-    value: count,
-  }));
-
-  // Mock data for demo charts
-  const weeklyTripData = [
-    { day: 'Mon', trips: 12, completed: 10 },
-    { day: 'Tue', trips: 15, completed: 14 },
-    { day: 'Wed', trips: 18, completed: 16 },
-    { day: 'Thu', trips: 14, completed: 12 },
-    { day: 'Fri', trips: 20, completed: 18 },
-    { day: 'Sat', trips: 8, completed: 8 },
-    { day: 'Sun', trips: 5, completed: 5 },
-  ];
-
-  const monthlyRevenueData = [
-    { month: 'Jan', revenue: 450000 },
-    { month: 'Feb', revenue: 520000 },
-    { month: 'Mar', revenue: 480000 },
-    { month: 'Apr', revenue: 610000 },
-    { month: 'May', revenue: 550000 },
-    { month: 'Jun', revenue: 680000 },
-  ];
-
-  const vehicleUtilization = [
-    { name: 'In Transit', value: stats?.total_vehicles - stats?.available_vehicles || 0 },
-    { name: 'Available', value: stats?.available_vehicles || 0 },
-    { name: 'Maintenance', value: stats?.pending_maintenance || 0 },
-  ].filter(item => item.value > 0);
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 text-orange-500 animate-spin" />
-      </div>
-    );
-  }
-
-  return (
-    <div data-testid="reports-page" className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="font-heading font-bold text-2xl sm:text-3xl text-white">
-            Reports & Analytics
-          </h1>
-          <p className="text-slate-400 text-sm mt-1">
-            Performance metrics and AI-powered insights
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <Select value={reportPeriod} onValueChange={setReportPeriod}>
-            <SelectTrigger className="w-32 bg-slate-900 border-slate-800 text-white">
-              <Calendar className="w-4 h-4 mr-2" />
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent className="bg-slate-800 border-slate-700">
-              <SelectItem value="week" className="text-white">This Week</SelectItem>
-              <SelectItem value="month" className="text-white">This Month</SelectItem>
-              <SelectItem value="quarter" className="text-white">This Quarter</SelectItem>
-              <SelectItem value="year" className="text-white">This Year</SelectItem>
-            </SelectContent>
-          </Select>
-          <Button 
-            variant="outline"
-            className="border-slate-700 text-slate-300 hover:bg-slate-800"
-          >
-            <Download className="w-4 h-4 mr-2" />
-            Export
-          </Button>
-        </div>
-      </div>
-
-      {/* Summary Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card className="bg-slate-900 border-slate-800">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-blue-500/10 rounded-lg flex items-center justify-center">
-                <Truck className="w-5 h-5 text-blue-500" />
-              </div>
-              <div>
-                <p className="text-slate-400 text-xs">Total Vehicles</p>
-                <p className="font-heading font-bold text-2xl text-white">{stats?.total_vehicles || 0}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="bg-slate-900 border-slate-800">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-green-500/10 rounded-lg flex items-center justify-center">
-                <Users className="w-5 h-5 text-green-500" />
-              </div>
-              <div>
-                <p className="text-slate-400 text-xs">Total Drivers</p>
-                <p className="font-heading font-bold text-2xl text-white">{stats?.total_drivers || 0}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="bg-slate-900 border-slate-800">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-orange-500/10 rounded-lg flex items-center justify-center">
-                <Route className="w-5 h-5 text-orange-500" />
-              </div>
-              <div>
-                <p className="text-slate-400 text-xs">Total Trips</p>
-                <p className="font-heading font-bold text-2xl text-white">{trips.length}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="bg-slate-900 border-slate-800">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-purple-500/10 rounded-lg flex items-center justify-center">
-                <TrendingUp className="w-5 h-5 text-purple-500" />
-              </div>
-              <div>
-                <p className="text-slate-400 text-xs">Completion Rate</p>
-                <p className="font-heading font-bold text-2xl text-white">
-                  {trips.length > 0 
-                    ? `${Math.round((tripSummary.completed || 0) / trips.length * 100)}%`
-                    : '0%'
-                  }
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Charts Row 1 */}
-      <div className="grid lg:grid-cols-2 gap-6">
-        {/* Weekly Trips Chart */}
-        <Card className="bg-slate-900 border-slate-800">
-          <CardHeader className="border-b border-slate-800 pb-4">
-            <CardTitle className="font-heading text-lg text-white flex items-center gap-2">
-              <BarChart3 className="w-5 h-5 text-orange-500" />
-              Weekly Trip Activity
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-4">
-            <ResponsiveContainer width="100%" height={280}>
-              <BarChart data={weeklyTripData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-                <XAxis dataKey="day" stroke="#94a3b8" fontSize={12} />
-                <YAxis stroke="#94a3b8" fontSize={12} />
-                <Tooltip 
-                  contentStyle={{ 
-                    backgroundColor: '#1e293b', 
-                    border: '1px solid #334155',
-                    borderRadius: '8px',
-                  }}
-                  labelStyle={{ color: '#f8fafc' }}
-                />
-                <Legend />
-                <Bar dataKey="trips" name="Total Trips" fill="#f97316" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="completed" name="Completed" fill="#22c55e" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-
-        {/* Trip Status Distribution */}
-        <Card className="bg-slate-900 border-slate-800">
-          <CardHeader className="border-b border-slate-800 pb-4">
-            <CardTitle className="font-heading text-lg text-white flex items-center gap-2">
-              <Route className="w-5 h-5 text-orange-500" />
-              Trip Status Distribution
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-4">
-            {tripStatusData.length > 0 ? (
-              <>
-                <ResponsiveContainer width="100%" height={220}>
-                  <PieChart>
-                    <Pie
-                      data={tripStatusData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={50}
-                      outerRadius={80}
-                      paddingAngle={5}
-                      dataKey="value"
-                    >
-                      {tripStatusData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip 
-                      contentStyle={{ 
-                        backgroundColor: '#1e293b', 
-                        border: '1px solid #334155',
-                        borderRadius: '8px',
-                      }}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-                <div className="flex flex-wrap justify-center gap-4 mt-2">
-                  {tripStatusData.map((item, index) => (
-                    <div key={index} className="flex items-center gap-2">
-                      <div 
-                        className="w-3 h-3 rounded-full" 
-                        style={{ backgroundColor: COLORS[index % COLORS.length] }}
-                      />
-                      <span className="text-xs text-slate-400">{item.name}: {item.value}</span>
-                    </div>
-                  ))}
-                </div>
-              </>
-            ) : (
-              <div className="h-64 flex items-center justify-center text-slate-500">
-                <p>No trip data available</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Charts Row 2 */}
-      <div className="grid lg:grid-cols-2 gap-6">
-        {/* Revenue Trend */}
-        <Card className="bg-slate-900 border-slate-800">
-          <CardHeader className="border-b border-slate-800 pb-4">
-            <CardTitle className="font-heading text-lg text-white flex items-center gap-2">
-              <TrendingUp className="w-5 h-5 text-orange-500" />
-              Monthly Revenue Trend
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-4">
-            <ResponsiveContainer width="100%" height={280}>
-              <AreaChart data={monthlyRevenueData}>
-                <defs>
-                  <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#f97316" stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor="#f97316" stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-                <XAxis dataKey="month" stroke="#94a3b8" fontSize={12} />
-                <YAxis stroke="#94a3b8" fontSize={12} tickFormatter={(value) => `₹${value/1000}K`} />
-                <Tooltip 
-                  contentStyle={{ 
-                    backgroundColor: '#1e293b', 
-                    border: '1px solid #334155',
-                    borderRadius: '8px',
-                  }}
-                  formatter={(value) => [`₹${value.toLocaleString()}`, 'Revenue']}
-                />
-                <Area 
-                  type="monotone" 
-                  dataKey="revenue" 
-                  stroke="#f97316" 
-                  fillOpacity={1} 
-                  fill="url(#colorRevenue)" 
-                  strokeWidth={2}
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-
-        {/* Vehicle Utilization */}
-        <Card className="bg-slate-900 border-slate-800">
-          <CardHeader className="border-b border-slate-800 pb-4">
-            <CardTitle className="font-heading text-lg text-white flex items-center gap-2">
-              <Truck className="w-5 h-5 text-orange-500" />
-              Vehicle Utilization
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-4">
-            {vehicleUtilization.length > 0 ? (
-              <>
-                <ResponsiveContainer width="100%" height={220}>
-                  <PieChart>
-                    <Pie
-                      data={vehicleUtilization}
-                      cx="50%"
-                      cy="50%"
-                      outerRadius={80}
-                      dataKey="value"
-                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                      labelLine={false}
-                    >
-                      {vehicleUtilization.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip 
-                      contentStyle={{ 
-                        backgroundColor: '#1e293b', 
-                        border: '1px solid #334155',
-                        borderRadius: '8px',
-                      }}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-                <div className="flex flex-wrap justify-center gap-4 mt-2">
-                  {vehicleUtilization.map((item, index) => (
-                    <div key={index} className="flex items-center gap-2">
-                      <div 
-                        className="w-3 h-3 rounded-full" 
-                        style={{ backgroundColor: COLORS[index % COLORS.length] }}
-                      />
-                      <span className="text-xs text-slate-400">{item.name}: {item.value}</span>
-                    </div>
-                  ))}
-                </div>
-              </>
-            ) : (
-              <div className="h-64 flex items-center justify-center text-slate-500">
-                <p>No vehicle data available</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* AI Insights */}
-      <Card className="bg-slate-900 border-slate-800">
-        <CardHeader className="border-b border-slate-800 pb-4">
-          <CardTitle className="font-heading text-lg text-white flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-orange-500" />
-            AI-Powered Analytics
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-4 space-y-4">
-          <p className="text-slate-400 text-sm">
-            Ask our AI for insights about your fleet operations, route optimization, or performance analysis.
-          </p>
-          <div className="flex gap-3">
-            <Textarea
-              placeholder="e.g., 'What's the best time to schedule deliveries to maximize efficiency?' or 'How can I reduce vehicle idle time?'"
-              value={aiQuery}
-              onChange={(e) => setAiQuery(e.target.value)}
-              className="bg-slate-800 border-slate-700 text-white placeholder:text-slate-500 min-h-[80px] resize-none flex-1"
-            />
-          </div>
-          <div className="flex gap-3">
-            <Button
-              variant="outline"
-              size="sm"
-              className="border-slate-700 text-slate-300 hover:bg-slate-800"
-              onClick={() => setAiQuery('How can I improve fleet utilization?')}
-            >
-              Fleet Optimization
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="border-slate-700 text-slate-300 hover:bg-slate-800"
-              onClick={() => setAiQuery('Suggest ways to reduce fuel costs')}
-            >
-              Cost Reduction
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="border-slate-700 text-slate-300 hover:bg-slate-800"
-              onClick={() => setAiQuery('How to improve driver performance?')}
-            >
-              Driver Performance
-            </Button>
-          </div>
-          <Button 
-            onClick={handleAiQuery}
-            disabled={aiLoading || !aiQuery.trim()}
-            className="bg-orange-500 hover:bg-orange-600 text-white font-heading font-semibold"
-          >
-            {aiLoading ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Analyzing...
-              </>
-            ) : (
-              <>
-                <Send className="w-4 h-4 mr-2" />
-                Get AI Insights
-              </>
-            )}
-          </Button>
-          {aiInsight && (
-            <div className="p-4 bg-slate-800/50 rounded-lg border border-slate-700">
-              <div className="flex items-start gap-2">
-                <Sparkles className="w-4 h-4 text-orange-500 mt-1" />
-                <p className="text-sm text-slate-300 whitespace-pre-wrap">{aiInsight}</p>
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-    </div>
-  );
+  const [filters, setFilters] = useState(initialFilters); const [applied, setApplied] = useState(initialFilters); const [report, setReport] = useState(null); const [options, setOptions] = useState({ customers: [], drivers: [], vehicles: [] });
+  const [loading, setLoading] = useState(true); const [tab, setTab] = useState('trips'); const [exporting, setExporting] = useState(false);
+  const load = async selected => { setLoading(true); try { const response = await reportsAPI.overview(query(selected)); setReport(response.data); setApplied(selected); } catch (error) { toast.error(errorText(error)); } finally { setLoading(false); } };
+  useEffect(() => { Promise.all([customerAPI.getAll(), driverAPI.getAll(), vehicleAPI.getAll()]).then(([customers, drivers, vehicles]) => setOptions({ customers: customers.data, drivers: drivers.data, vehicles: vehicles.data })).catch(() => toast.error('Failed to load report filters')); load(initialFilters); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const apply = event => { event.preventDefault(); load(filters); };
+  const exportCsv = async () => { setExporting(true); try { const response = await reportsAPI.exportCsv(tab === 'ageing' ? 'trips' : tab, query(applied)); const url = URL.createObjectURL(response.data); const anchor = document.createElement('a'); anchor.href = url; anchor.download = `bookmyload-${tab}-${applied.start_date}-to-${applied.end_date}.csv`; anchor.click(); URL.revokeObjectURL(url); toast.success('CSV exported'); } catch (error) { toast.error(errorText(error)); } finally { setExporting(false); } };
+  const statusData = useMemo(() => Object.entries(report?.trip_statuses || {}).map(([name, value]) => ({ name: name.replaceAll('_', ' '), value })), [report]);
+  if (!report && loading) return <div className="h-64 flex items-center justify-center"><Loader2 className="animate-spin text-orange-500" /></div>;
+  const summary = report?.summary || {};
+  return <div data-testid="reports-page" className="space-y-6 print:bg-white print:text-black">
+    <div className="flex flex-wrap justify-between gap-3"><div><h1 className="text-3xl font-bold text-white print:text-black">Reports & Analytics</h1><p className="text-sm text-slate-400 print:text-slate-600">Real operational and financial performance · {applied.start_date} to {applied.end_date}</p></div><div className="flex gap-2 print:hidden"><Button variant="outline" onClick={() => window.print()}><Printer className="w-4 h-4 mr-2" />Print / PDF</Button><Button onClick={exportCsv} disabled={exporting || tab === 'ageing'} className="bg-orange-500">{exporting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Download className="w-4 h-4 mr-2" />}Export CSV</Button></div></div>
+    <Card className="bg-slate-900 border-slate-800 print:hidden"><CardContent className="p-4"><form onSubmit={apply} className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3"><Field type="date" label="From" value={filters.start_date} onChange={event => setFilters({ ...filters, start_date: event.target.value })} /><Field type="date" label="To" value={filters.end_date} onChange={event => setFilters({ ...filters, end_date: event.target.value })} /><Select label="Customer" value={filters.customer_id} onChange={event => setFilters({ ...filters, customer_id: event.target.value })} values={options.customers.map(item => [item.customer_id, item.name])} /><Select label="Driver" value={filters.driver_id} onChange={event => setFilters({ ...filters, driver_id: event.target.value })} values={options.drivers.map(item => [item.driver_id, item.name])} /><Select label="Vehicle" value={filters.vehicle_id} onChange={event => setFilters({ ...filters, vehicle_id: event.target.value })} values={options.vehicles.map(item => [item.vehicle_id, item.registration_number])} /><Select label="Load status" value={filters.load_status} onChange={event => setFilters({ ...filters, load_status: event.target.value })} values={['draft','submitted','approved','scheduled','allocated','in_execution','delivered','closed','rejected','cancelled'].map(item => [item, item.replaceAll('_',' ')])} /><Select label="Invoice status" value={filters.invoice_status} onChange={event => setFilters({ ...filters, invoice_status: event.target.value })} values={['draft','issued','partially_paid','paid','overdue'].map(item => [item, item.replaceAll('_',' ')])} /><Select label="Expense category" value={filters.expense_category} onChange={event => setFilters({ ...filters, expense_category: event.target.value })} values={['fuel','toll','parking','driver_allowance','transporter','loading','unloading','repair','fine','other'].map(item => [item, item.replaceAll('_',' ')])} /><div className="lg:col-span-4 flex justify-end gap-2"><Button type="button" variant="ghost" onClick={() => { setFilters(initialFilters); load(initialFilters); }}>Reset</Button><Button type="submit" disabled={loading} className="bg-orange-500">{loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-2" />}Apply filters</Button></div></form></CardContent></Card>
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3"><Stat icon={FileText} label="Loads / completed trips" value={`${summary.loads || 0} / ${summary.completed_trips || 0}`} note={`${summary.completion_rate || 0}% trip completion`} /><Stat icon={Banknote} label="Pre-tax revenue" value={currency(summary.revenue)} note={`${currency(summary.collected)} collected incl. tax`} /><Stat icon={WalletCards} label="Approved trip costs" value={currency(summary.approved_expenses)} note={`${summary.pending_expense_approvals || 0} awaiting approval`} /><Stat icon={TrendingUp} label="Profit / margin" value={currency(summary.profit)} note={summary.margin_percent == null ? 'No revenue' : `${summary.margin_percent}% margin`} /></div>
+    <div className="grid lg:grid-cols-2 gap-4"><ChartCard title="Revenue, cost and profit trend" icon={TrendingUp}><ResponsiveContainer width="100%" height={280}><AreaChart data={report?.trend || []}><CartesianGrid strokeDasharray="3 3" stroke="#334155" /><XAxis dataKey="period" stroke="#94a3b8" fontSize={11} /><YAxis stroke="#94a3b8" fontSize={11} tickFormatter={value => `₹${Math.round(value / 1000)}k`} /><Tooltip contentStyle={tooltipStyle} formatter={value => currency(value)} /><Legend /><Area type="monotone" dataKey="revenue" stroke="#f97316" fill="#f9731633" /><Area type="monotone" dataKey="cost" stroke="#ef4444" fill="#ef444422" /><Area type="monotone" dataKey="profit" stroke="#22c55e" fill="#22c55e22" /></AreaChart></ResponsiveContainer></ChartCard><ChartCard title="Trip status distribution" icon={Route}>{statusData.length ? <ResponsiveContainer width="100%" height={280}><PieChart><Pie data={statusData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={90} label>{statusData.map((item, index) => <Cell key={item.name} fill={COLORS[index % COLORS.length]} />)}</Pie><Tooltip contentStyle={tooltipStyle} /></PieChart></ResponsiveContainer> : <Empty />}</ChartCard></div>
+    <div className="grid lg:grid-cols-2 gap-4"><ChartCard title="Expense category breakdown" icon={WalletCards}>{report?.expense_categories?.length ? <ResponsiveContainer width="100%" height={260}><BarChart data={report.expense_categories}><CartesianGrid strokeDasharray="3 3" stroke="#334155" /><XAxis dataKey="category" stroke="#94a3b8" fontSize={11} /><YAxis stroke="#94a3b8" fontSize={11} /><Tooltip contentStyle={tooltipStyle} formatter={value => currency(value)} /><Bar dataKey="amount" fill="#f97316" radius={[4,4,0,0]} /></BarChart></ResponsiveContainer> : <Empty />}</ChartCard><ChartCard title="Invoice ageing" icon={BarChart3}><ResponsiveContainer width="100%" height={260}><BarChart data={Object.entries(report?.invoice_ageing || {}).map(([bucket, amount]) => ({ bucket: bucket.replaceAll('_',' '), amount }))}><CartesianGrid strokeDasharray="3 3" stroke="#334155" /><XAxis dataKey="bucket" stroke="#94a3b8" fontSize={11} /><YAxis stroke="#94a3b8" fontSize={11} /><Tooltip contentStyle={tooltipStyle} formatter={value => currency(value)} /><Bar dataKey="amount" fill="#3b82f6" radius={[4,4,0,0]} /></BarChart></ResponsiveContainer></ChartCard></div>
+    <div className="flex gap-1 overflow-x-auto border-b border-slate-800 print:hidden">{[['trips','Trips'],['customers','Customers'],['drivers','Drivers'],['vehicles','Vehicles'],['ageing','Collection ageing']].map(([key,label]) => <button key={key} onClick={() => setTab(key)} className={`px-4 py-3 whitespace-nowrap text-sm border-b-2 ${tab === key ? 'border-orange-500 text-orange-400' : 'border-transparent text-slate-500'}`}>{label}</button>)}</div>
+    {tab === 'trips' && <DataTable headers={['Load','Customer','Driver / vehicle','Date','Status','Revenue','Cost','Profit']} rows={report.trips} render={item => <tr key={item.trip_id} className="border-b border-slate-800"><Cell><Link to="/dashboard/trips" className="font-mono text-orange-400">{item.load_reference || item.trip_id}</Link></Cell><Cell>{item.customer_name}</Cell><Cell>{item.driver_name || '—'}<br /><span className="text-xs">{item.vehicle || '—'}</span></Cell><Cell>{new Date(item.scheduled_date).toLocaleDateString()}</Cell><Cell><Status value={item.status} /></Cell><Cell>{currency(item.revenue)}</Cell><Cell>{currency(item.cost)}</Cell><Cell className={Number(item.profit) < 0 ? 'text-red-400' : 'text-green-400'}>{currency(item.profit)}</Cell></tr>} />}
+    {tab === 'customers' && <DataTable headers={['Customer','Loads','Completed trips','Revenue','Cost','Profit','Outstanding']} rows={report.customers} render={item => <tr key={item.customer_id} className="border-b border-slate-800"><Cell className="text-white">{item.customer_name}</Cell><Cell>{item.loads}</Cell><Cell>{item.completed_trips}</Cell><Cell>{currency(item.revenue)}</Cell><Cell>{currency(item.cost)}</Cell><Cell className="text-green-400">{currency(item.profit)}</Cell><Cell>{currency(item.outstanding)}</Cell></tr>} />}
+    {tab === 'drivers' && <DataTable headers={['Driver','Trips','Completed','Completion rate','Distance']} rows={report.drivers} render={item => <tr key={item.driver_id} className="border-b border-slate-800"><Cell className="text-white">{item.driver_name}</Cell><Cell>{item.trips}</Cell><Cell>{item.completed}</Cell><Cell>{item.completion_rate}%</Cell><Cell>{item.distance_km} km</Cell></tr>} />}
+    {tab === 'vehicles' && <DataTable headers={['Vehicle','Trips','Completed','Distance']} rows={report.vehicles} render={item => <tr key={item.vehicle_id} className="border-b border-slate-800"><Cell className="font-mono text-white">{item.registration_number}</Cell><Cell>{item.trips}</Cell><Cell>{item.completed}</Cell><Cell>{item.distance_km} km</Cell></tr>} />}
+    {tab === 'ageing' && <DataTable headers={['Age bucket','Outstanding amount']} rows={Object.entries(report.invoice_ageing).map(([bucket, amount]) => ({ bucket, amount }))} render={item => <tr key={item.bucket} className="border-b border-slate-800"><Cell className="capitalize text-white">{item.bucket.replaceAll('_',' ')}</Cell><Cell>{currency(item.amount)}</Cell></tr>} />}
+    <p className="text-xs text-slate-500">Profit excludes GST and uses only approved actual trip expenses. Pending or rejected expenses do not reduce realized profit.</p>
+  </div>;
 }
+
+const tooltipStyle = { backgroundColor: '#0f172a', border: '1px solid #334155', borderRadius: 8 };
+function Stat({ icon: Icon, label, value, note }) { return <Card className="bg-slate-900 border-slate-800"><CardContent className="p-4"><Icon className="w-5 h-5 text-orange-500" /><p className="text-xs text-slate-500 mt-3">{label}</p><p className="text-xl font-bold text-white mt-1">{value}</p><p className="text-xs text-slate-500 mt-1">{note}</p></CardContent></Card>; }
+function ChartCard({ title, icon: Icon, children }) { return <Card className="bg-slate-900 border-slate-800"><CardHeader><CardTitle className="text-base text-white flex gap-2"><Icon className="w-5 h-5 text-orange-500" />{title}</CardTitle></CardHeader><CardContent>{children}</CardContent></Card>; }
+function Empty() { return <div className="h-[260px] flex items-center justify-center text-slate-500">No data for selected filters.</div>; }
+function DataTable({ headers, rows, render }) { return <Card className="bg-slate-900 border-slate-800"><CardContent className="p-0 overflow-x-auto"><table className="w-full text-sm"><thead><tr className="border-b border-slate-800 text-left text-xs uppercase text-slate-500">{headers.map(item => <th key={item} className="p-3">{item}</th>)}</tr></thead><tbody>{rows.map(render)}</tbody></table>{!rows.length && <div className="py-12 text-center text-slate-500">No records match the filters.</div>}</CardContent></Card>; }
+function Cell({ children, className = '', ...props }) { return props.fill ? <ChartCell {...props} /> : <td className={`p-3 text-slate-400 ${className}`}>{children}</td>; }
+function Status({ value }) { return <Badge className="bg-slate-700 text-slate-300 capitalize">{value.replaceAll('_',' ')}</Badge>; }
+function Field({ label, ...props }) { return <div><Label>{label}</Label><Input {...props} className="mt-1 bg-slate-800 border-slate-700" /></div>; }
+function Select({ label, values, ...props }) { return <div><Label>{label}</Label><select {...props} className="mt-1 h-10 w-full rounded border border-slate-700 bg-slate-800 px-2 capitalize"><option value="">All</option>{values.map(([value,labelValue]) => <option key={value} value={value}>{labelValue}</option>)}</select></div>; }
