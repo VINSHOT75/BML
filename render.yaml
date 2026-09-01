@@ -17,7 +17,7 @@ services:
       - key: GOOGLE_CLIENT_ID
         sync: false
       - key: CORS_ORIGINS
-        value: https://bookmyload.onrender.com,https://bookmyload-review.onrender.com
+        value: https://bookmyload-rle8.onrender.com,https://bookmyload-review.onrender.com
       - key: COOKIE_SECURE
         value: "true"
       - key: DEFAULT_ORGANIZATION_NAME

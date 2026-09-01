@@ -5,7 +5,7 @@ service on Render, backed by a free Neon PostgreSQL database.
 
 ## Public URLs
 
-- Client application: `https://bookmyload.onrender.com`
+- Client application: `https://bookmyload-rle8.onrender.com`
 - Backend API: `https://bookmyload-review-api.onrender.com`
 
 The client should only need the client application URL. Requests under `/api`
@@ -34,7 +34,7 @@ postgresql+psycopg://USER:PASSWORD@HOST/DATABASE?sslmode=require&channel_binding
 In the Google Cloud OAuth web client, add this Authorized JavaScript origin:
 
 ```text
-https://bookmyload.onrender.com
+https://bookmyload-rle8.onrender.com
 ```
 
 Use the same OAuth client ID for the frontend and backend when prompted by
