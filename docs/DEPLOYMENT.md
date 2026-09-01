@@ -5,7 +5,7 @@ service on Render, backed by a free Neon PostgreSQL database.
 
 ## Public URLs
 
-- Client application: `https://bookmyload-review.onrender.com`
+- Client application: `https://bookmyload.onrender.com`
 - Backend API: `https://bookmyload-review-api.onrender.com`
 
 The client should only need the client application URL. Requests under `/api`
@@ -34,7 +34,7 @@ postgresql+psycopg://USER:PASSWORD@HOST/DATABASE?sslmode=require&channel_binding
 In the Google Cloud OAuth web client, add this Authorized JavaScript origin:
 
 ```text
-https://bookmyload-review.onrender.com
+https://bookmyload.onrender.com
 ```
 
 Use the same OAuth client ID for the frontend and backend when prompted by
@@ -48,7 +48,8 @@ Render. A client secret is not used by this application.
 4. Enter these secret values when prompted:
    - Backend `DATABASE_URL`: the adjusted Neon connection string.
    - Backend `GOOGLE_CLIENT_ID`: the Google OAuth web client ID.
-   - Frontend `REACT_APP_GOOGLE_CLIENT_ID`: the same client ID.
+   - The frontend Google client ID is a public browser identifier configured in
+     `render.yaml`; the backend `GOOGLE_CLIENT_ID` remains a dashboard value.
 5. Apply the Blueprint and wait for both deployments to succeed.
 
 The backend start command applies all Alembic migrations before starting the

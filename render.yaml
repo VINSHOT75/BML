@@ -17,7 +17,7 @@ services:
       - key: GOOGLE_CLIENT_ID
         sync: false
       - key: CORS_ORIGINS
-        value: https://bookmyload-review.onrender.com
+        value: https://bookmyload.onrender.com,https://bookmyload-review.onrender.com
       - key: COOKIE_SECURE
         value: "true"
       - key: DEFAULT_ORGANIZATION_NAME
@@ -30,15 +30,19 @@ services:
         value: BookMyLoad/1.0 (client review deployment)
 
   - type: web
-    name: bookmyload-review
+    name: bookmyload
     runtime: static
     rootDir: frontend
-    buildCommand: npm ci --legacy-peer-deps && npm run build
+    buildCommand: npm install --legacy-peer-deps && npm run build
     staticPublishPath: build
     autoDeployTrigger: commit
     envVars:
+      - key: SKIP_INSTALL_DEPS
+        value: "true"
+      - key: NODE_VERSION
+        value: 22.14.0
       - key: REACT_APP_GOOGLE_CLIENT_ID
-        sync: false
+        value: 197679104495-bg924i538heh62k8t9tk8tbe8fcfpho7.apps.googleusercontent.com
       - key: ENABLE_HEALTH_CHECK
         value: "false"
       - key: CI
