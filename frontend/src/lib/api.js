@@ -1,6 +1,9 @@
 import axios from 'axios';
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8000';
+// Production requests use the public frontend origin and are proxied to the API
+// by the hosting platform. Local development continues to use FastAPI on 8000.
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL
+  || (process.env.NODE_ENV === 'production' ? window.location.origin : 'http://localhost:8000');
 const API_BASE = `${BACKEND_URL}/api`;
 
 // Create axios instance with credentials
